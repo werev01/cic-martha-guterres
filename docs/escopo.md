@@ -1,0 +1,122 @@
+# Escopo do CIC Martha Guterres (MVP)
+
+Fonte da verdade sobre telas, perfis e decisões do projeto. Antes de propor qualquer
+coisa, leia este documento. Mudou decisão? Atualize aqui no mesmo commit.
+
+Última atualização: 03/11/2026
+
+## Contexto
+
+- Operação de Black Friday da Martha Guterres. Abertura de carrinho em 04/11/2026,
+  Black Friday em 27/11/2026. Depois segue como operação contínua.
+- Uma segunda operação (outro cliente, conta própria no Unnichat) será plugada no
+  mesmo app depois. Por isso, tudo que é do cliente fica numa config isolada e nada
+  da Martha entra hardcoded na lógica.
+- Este projeto é a base do modelo padrão do CIC para as próximas operações (ver
+  "Modelo para próximas operações" no fim).
+
+## Recursos (trava de isolamento)
+
+| Recurso | Identificador |
+|---|---|
+| Repositório | `werev01/cic-martha-guterres` |
+| Publicação | GitHub Pages do repo, sem domínio próprio por enquanto |
+| Supabase | project ref `zrvrfxhzwzumvetgjure` (organização WeRev, sa-east-1) |
+| n8n (cloud, compartilhado) | pasta `cic-martha-guterres`, workflows com prefixo `[MARTHA]` |
+| Unnichat | conta própria da Martha |
+| Slug do cliente | `martha-guterres` (sempre com sobrenome) |
+
+Auth do Supabase: cadastro aberto desligado; Site URL aponta pro GitHub Pages do repo.
+
+## Fontes de dados
+
+| Fonte | O que entrega |
+|---|---|
+| Unnichat | eventos de CRM (etapas, motivos de perda, vendedor), disparos e conversas, com "Código Copy" |
+| Callix | discadora: ligações, usuários/agentes, qualificações, resumos por hora |
+| Hubla | vendas, reembolsos, carrinho abandonado, cartão recusado |
+| TMB | vendas e reembolsos/cancelamentos (a operação também vende por lá) |
+
+Detalhe de tabela, campo e chave única de cada fonte: `docs/contrato-dados.md`
+(etapa 6, ainda não escrito).
+
+## Telas do MVP
+
+Só entram as telas abaixo. Nada de copiar a estrutura do G2. A coluna "Referência no
+G2" diz qual aba do `werev01/cic-g2` serve de base (ver `docs/referencia-g2.md`).
+
+| # | Tela | Referência no G2 | Fica de fora |
+|---|---|---|---|
+| 1 | Home | `home` | |
+| 2 | Meta do mês | `metadomes` | |
+| 3 | Mensageria | `infraestrutura` | |
+| 4 | Discadora | `discadora` | gráfico "Velocidade de atendimento ao lead" |
+| 5 | Desempenho individual | `vendedores` | "Análise por Vendedor"; "Rondas do Dia" |
+| 6 | Minha página | `minhapagina` | Régua de níveis; Bônus; Evolução e Comparativo |
+| 7 | Relatórios | `relatorios` | |
+| 8 | Taxa de passagem | `taxapassagem` | "O que fica e o que sai · equipe"; "Análise Inteligência Comercial WeRev"; "Conversão Real por vendedor"; "Conversão real do recorte"; "Evolução no tempo"; "Quantos leads/hora pra fazer 2 vendas/hora?" |
+| 9 | Motivos de Perda | `motivosperda` | |
+| 10 | Ciclo de Vendas | `ciclovenda` | |
+| 11 | Reembolsos | `reembolsos` | |
+
+Abas do G2 que NÃO entram: Recordes, Times, Faturamento, Evolução, Regras, Rotina,
+Processos.
+
+## Perfis
+
+| Perfil | Menus | Dados |
+|---|---|---|
+| Admin | todos | todos os projetos/clientes |
+| Vendedor | só os menus liberados (lista a definir; até lá, padrão é só admin) | só o projeto em que atua; se atua em dois, vê as duas views |
+
+Regras:
+- Login por e-mail e senha. Só a equipe WeRev cria usuários. Antes de criar qualquer
+  usuário, pedir o e-mail ao Nirla.
+- Cada operação tem seu próprio Supabase. Vendedor em dois projetos tem cadastro nos
+  dois, com o mesmo e-mail, e o app mostra um seletor de projeto depois do login.
+- Só Nirla e Mitsuo acessam as ferramentas (Supabase, n8n, GitHub, Unnichat). O resto
+  acessa só o CIC.
+
+## Decisões fechadas
+
+- Camadas do banco: bruto (alimentado pelo n8n) -> tratado (views) -> app.
+- Tabelas brutas sem permissão pro app; o app lê só views/tabelas tratadas, via RLS.
+- Toda tabela bruta tem chave única, pro n8n fazer upsert sem duplicar.
+- O front usa só a chave pública. A service role fica só nas credenciais do n8n.
+- Disparos usam o campo "Código Copy" do Unnichat; a coluna `codigo_copy` existe desde
+  a tabela bruta.
+- Views de trabalho e diagnóstico ficam no schema `tmp_claude`, com validade de 12h e
+  limpeza automática.
+- Workflows do n8n criados do zero (não duplicar nem ler os do G2). Padrões em
+  `docs/padroes-n8n.md`.
+- O app não baixa tabela inteira no navegador: agrega no banco e pagina (armadilha
+  vista no G2, ver `docs/referencia-g2.md`).
+
+## Em aberto
+
+- [ ] Quais menus o vendedor enxerga.
+- [ ] Regra de valor da TMB: no G2 a venda TMB entra pela metade no front. Vale pra
+      Martha? Se valer, vira parâmetro da config do cliente, não regra fixa.
+- [ ] Callix: conta própria da Martha ou compartilhada? Define credencial e filtro.
+- [ ] Meta do mês: quem preenche e em que formato (por funil, por vendedor, cenários).
+- [ ] Atribuição de venda ao vendedor: por UTM (como no G2), por campo do Unnichat ou
+      os dois.
+
+## Ordem de execução
+
+1. Docs (este, `padroes-n8n.md`, `referencia-g2.md`) e estrutura do repo.
+2. Contrato de dados (etapa 6) junto com as tabelas brutas, pra ligar o n8n em 04/11.
+3. Resto do banco: tratadas, views, perfis, vínculo vendedor x projeto, RLS,
+   `tmp_claude`.
+4. Login e usuários de teste (pedindo e-mail antes).
+5. App com as 11 telas, menus por perfil, config isolada, deploy no GitHub Pages.
+6. Teste ponta a ponta: registro de teste em cada bruta, conferir no CIC, validar RLS
+   com vendedor.
+
+## Modelo para próximas operações
+
+- Tudo que for genérico nasce parametrizado; o que é do cliente fica na config isolada.
+- O modelo sai do que foi montado e validado aqui, não do G2.
+- Depois de 27/11, extrair um repo modelo (ex.: `werev01/cic-template`) com migrations
+  base, app, padrões do n8n, contratos de dados e um `PLAYBOOK.md` de como plugar uma
+  operação nova. Criar esse repo só com aval.
