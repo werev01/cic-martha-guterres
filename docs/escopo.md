@@ -37,8 +37,7 @@ Auth do Supabase: cadastro aberto desligado; Site URL aponta pro GitHub Pages do
 | Hubla | vendas, reembolsos, carrinho abandonado, cartão recusado |
 | TMB | vendas e reembolsos/cancelamentos (a operação também vende por lá) |
 
-Detalhe de tabela, campo e chave única de cada fonte: `docs/contrato-dados.md`
-(etapa 6, ainda não escrito).
+Detalhe de tabela, campo e chave única de cada fonte: `docs/contrato-dados.md`.
 
 ## Telas do MVP
 
@@ -92,15 +91,21 @@ Regras:
 - O app não baixa tabela inteira no navegador: agrega no banco e pagina (armadilha
   vista no G2, ver `docs/referencia-g2.md`).
 
+- Atribuição de venda ao vendedor: sempre por UTM, padrão `comercial-nome-sobrenome`
+  (decidido em 03/11/2026).
+- Callix: conta da WeRev, compartilhada entre operações. Cada workflow filtra pelas
+  campanhas da operação antes de gravar (ver `contrato-dados.md`).
+- TMB: venda entra a 50% do valor, PROVISÓRIO até o Nirla definir. Fica como parâmetro
+  da config do cliente; a bruta guarda o valor cheio.
+
 ## Em aberto
 
 - [ ] Quais menus o vendedor enxerga.
-- [ ] Regra de valor da TMB: no G2 a venda TMB entra pela metade no front. Vale pra
-      Martha? Se valer, vira parâmetro da config do cliente, não regra fixa.
-- [ ] Callix: conta própria da Martha ou compartilhada? Define credencial e filtro.
+- [ ] Regra definitiva do valor TMB (hoje 50%). Cobrar o Nirla.
 - [ ] Meta do mês: quem preenche e em que formato (por funil, por vendedor, cenários).
-- [ ] Atribuição de venda ao vendedor: por UTM (como no G2), por campo do Unnichat ou
-      os dois.
+- [ ] Publicação: o GitHub Pages "por branch" só serve a raiz ou `/docs`. Como
+      `docs/` é documentação, o app em `app/` sai por GitHub Actions. Decidir na
+      etapa 5.
 
 ## Ordem de execução
 
