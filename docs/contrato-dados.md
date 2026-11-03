@@ -2,7 +2,7 @@
 
 O que cada workflow do n8n entrega, em qual tabela, com qual chave de upsert. É a
 referência pra montar os workflows. A DDL está em
-`supabase/migrations/20261103_0001_brutas.sql`.
+`supabase/migrations/20261103_0001_brutas.sql` (aplicada em 03/11/2026).
 
 Última atualização: 03/11/2026
 
@@ -27,9 +27,10 @@ referência pra montar os workflows. A DDL está em
 
 ## Regras de negócio que afetam a leitura (calculadas nas views)
 
-- **Vendedor da venda = UTM.** O padrão é `comercial-nome-sobrenome` (ex.:
-  `comercial-ana-souza`). A view procura esse padrão nos campos de UTM e cruza com o
-  cadastro de vendedores. Venda sem UTM `comercial-*` fica como "sem vendedor".
+- **Vendedor da venda = `utm_source`.** O padrão é `comercial-nome-sobrenome` (ex.:
+  `utm_source=comercial-ana-souza`). A view lê só o `utm_source` e cruza com o
+  cadastro de vendedores. Venda sem `comercial-*` no `utm_source` fica como "sem
+  vendedor".
 - **TMB vale 50%** do valor (provisório, parâmetro na config do cliente). A bruta
   guarda o valor cheio.
 - **Callix é conta da WeRev, compartilhada entre operações.** Ver seção Callix.
@@ -83,7 +84,7 @@ Fatura paga e mudanças de status. Reenvio do mesmo `invoice_id` atualiza a linh
 | `installments` | int | |
 | `coupon_code` | text | |
 | `subtotal_cents`, `discount_cents`, `total_cents`, `seller_net_cents` | bigint | centavos |
-| `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` | text | **onde vem o `comercial-*`** |
+| `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` | text | `utm_source` traz o `comercial-*` |
 | `sale_date` | timestamptz | data do pagamento |
 | `invoice_created_at`, `invoice_modified_at` | timestamptz | |
 | `raw_payload` | jsonb | **obr.** |
@@ -143,7 +144,7 @@ Um registro por pedido; mudança de status atualiza a linha.
 | `valor_total` | numeric | reais, **valor cheio** (os 50% são aplicados na view) |
 | `parcelas` | int | |
 | `valor_entrada`, `valor_parcela` | numeric | |
-| `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` | text | primeiro toque; **onde vem o `comercial-*`** |
+| `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` | text | primeiro toque; `utm_source` traz o `comercial-*` |
 | `utm_last_source`, `utm_last_medium`, `utm_last_campaign`, `utm_last_content` | text | último toque, se a TMB mandar |
 | `criado_em`, `data_efetivado` | timestamptz | |
 | `raw_payload` | jsonb | **obr.** |
@@ -204,9 +205,11 @@ regrava o broadcast inteiro (os contadores sobem até o fim).
 
 A conta atende mais de uma operação. Regra:
 
-1. O workflow `[MARTHA] Callix · *` tem um nó de config com a **lista de campanhas da
-   Martha** (`callix_campanha_id`) e filtra ANTES de gravar. Só entra no Supabase da
-   Martha o que é dessas campanhas.
+1. **Campanhas da Martha na Callix são nomeadas com o prefixo `[MARTHA]`** (mesmo
+   padrão do n8n). O workflow `[MARTHA] Callix · *` lê a lista de campanhas, pega os
+   ids das que começam com `[MARTHA]` e filtra ANTES de gravar. Só entra no Supabase
+   da Martha o que é dessas campanhas. Campanha criada fora do padrão não aparece no
+   CIC.
 2. Cadastros (`callix_usuarios`, `callix_qualificacoes`) entram inteiros; são
    pequenos e o vínculo agente x vendedor da Martha fica numa tabela de apoio
    (etapa 3).
@@ -248,15 +251,12 @@ select invoice_id, count(*) from hubla_vendas group by 1 having count(*) > 1;
 -- Campos importantes vazios (sinal de mapeamento errado no n8n)
 select count(*) filter (where sale_date is null)  sem_data,
        count(*) filter (where total_cents is null) sem_valor,
-       count(*) filter (where coalesce(utm_source,utm_medium,utm_campaign,utm_content,utm_term) is null) sem_utm
+       count(*) filter (where utm_source is null or utm_source not like 'comercial-%') sem_vendedor
 from hubla_vendas;
 ```
 
 ## Em aberto
 
-- [ ] Em qual campo de UTM o `comercial-nome-sobrenome` vai (source, campaign,
-      content...). Por enquanto a view procura em todos.
 - [ ] Id único do evento no payload do Unnichat (pode trocar a chave de
       `unnichat_eventos`).
-- [ ] Lista de campanhas Callix da Martha (vai no nó de config do workflow).
 - [ ] Regra definitiva do valor TMB (hoje 50%, provisório). Cobrar o Nirla.

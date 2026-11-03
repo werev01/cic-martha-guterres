@@ -91,8 +91,10 @@ Regras:
 - O app não baixa tabela inteira no navegador: agrega no banco e pagina (armadilha
   vista no G2, ver `docs/referencia-g2.md`).
 
-- Atribuição de venda ao vendedor: sempre por UTM, padrão `comercial-nome-sobrenome`
-  (decidido em 03/11/2026).
+- Atribuição de venda ao vendedor: sempre pelo `utm_source`, padrão
+  `comercial-nome-sobrenome` (decidido em 03/11/2026).
+- Campanhas da Martha na Callix seguem o prefixo `[MARTHA]` no nome; é por ele que o
+  n8n filtra.
 - Callix: conta da WeRev, compartilhada entre operações. Cada workflow filtra pelas
   campanhas da operação antes de gravar (ver `contrato-dados.md`).
 - TMB: venda entra a 50% do valor, PROVISÓRIO até o Nirla definir. Fica como parâmetro
