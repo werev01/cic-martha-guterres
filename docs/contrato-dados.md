@@ -180,7 +180,44 @@ Cada mudança no CRM (etapa, ganho, perda).
 Se o payload do Unnichat trouxer um id único do evento, trocamos a chave pra ele
 (migration pequena). Mandar o primeiro payload real pra eu conferir.
 
+**Origem no Unnichat:** conexão Martha Guterres 0209, pipeline
+`[COMERCIAL] Pipeline - Disparo`. Sete automações `[EVENTO]` (0. Base/Entrada,
+1. Discadora, 2. Em Contato, 3. Negociação, 4. Forecast, Ganho, Perdido): espera de
+15 s e POST. Só eventos de CRM passam por este webhook (sem Switch).
+
+**Body recebido** (chaves dentro de `data`):
+`{"data":{"id","name","email","phoneNumber","Data","Acao","Origem","Proprietario",
+"Etapa","conexao","pipeline","codigo copy","field":{...},"profilePicUrl","eventDate"}}`.
+Ganho e Perdido podem ter `Acao` diferente; grava o que vier.
+
+**Mapeamento** (workflow `[MARTHA] Unnichat · Eventos CRM`, nó "Mapear evento"):
+
+| Coluna | De onde vem |
+|---|---|
+| `telefone` | `data.phoneNumber`, mesma regra da blocklist (só dígitos; 10 ou 11 ganham `55`; fora de 10 a 15 para com erro) |
+| `event_ts` | `data.Data` ou `data.eventDate` se for ISO com data e hora (sem fuso assume -03:00); senão, hora do recebimento. **Pendente:** confirmar se `eventDate` é o momento do evento (ver escopo, Em aberto) |
+| `acao` | `data.Acao`. Obrigatório no banco: vazio para com erro |
+| `etapa_crm` | `data.Etapa` |
+| `nome`, `email` | `data.name`, `data.email` |
+| `origem` | `data.Origem` |
+| `proprietario` | `data.Proprietario` |
+| `conexao`, `pipeline` | `data.conexao`, `data.pipeline` |
+| `codigo_copy` | `data["codigo copy"]` |
+| `produto`, `oferta`, `forma_pagamento`, `motivo_perda`, `status` | se vierem em `data` ou `data.field` (nome da chave sem diferenciar maiúscula/minúscula) |
+| `valor_total`, `valor_liquido` | idem; aceita número ou texto BR (`R$ 1.234,56`). Não convertível não é enviado |
+| `raw_payload` | body inteiro |
+
+Campo vazio ou com variável não resolvida (`{{...}}`) não é enviado. A tabela não tem
+`contact_id`: o id do contato fica em `raw_payload->'data'->>'id'`.
+
+Efeito do `event_ts` na chave: se cair na hora do recebimento, reenvio do mesmo evento
+vira linha nova; se `eventDate` for uma data fixa (ex.: criação do contato), o mesmo
+contato voltando pra mesma etapa vira uma linha só.
+
 ### `unnichat_automacoes` (webhook `/webhook/martha-guterres/unnichat/automacoes`)
+**Não alimentada por decisão (04/11/2026):** só o comercial reporta (eventos de CRM em
+`unnichat_eventos`). Tabela fica no banco sem workflow.
+
 | Coluna | Tipo | Nota |
 |---|---|---|
 | `minuto` | timestamptz | **obr.** horário do envio, truncado no minuto |

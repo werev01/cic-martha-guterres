@@ -1,0 +1,129 @@
+{
+  "id": "mnZKfe66xrmSkHO1",
+  "name": "[MARTHA] Unnichat · Eventos CRM",
+  "description": "Recebe os eventos de CRM das automações [EVENTO] do Unnichat (pipeline de disparo, conexão 0209) e grava em public.unnichat_eventos.",
+  "active": true,
+  "versionId": "6de4d807-8c0b-444f-a000-668992f790ea",
+  "nodes": [
+    {
+      "name": "Webhook Unnichat",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "martha-guterres/unnichat/eventos",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Pj1OSK5PZLP63InH",
+          "name": "[MARTHA] Webhook token"
+        }
+      }
+    },
+    {
+      "name": "Mapear evento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Mapeia o body do Unnichat (automações [EVENTO]) para public.unnichat_eventos.\n// Contrato: docs/contrato-dados.md (unnichat_eventos). Chave: telefone, acao, etapa_crm, event_ts.\nconst body = ($json.body && typeof $json.body === 'object') ? $json.body : {};\nconst d = (body.data && typeof body.data === 'object') ? body.data : {};\n\n// texto limpo; vazio, ausente ou variável não resolvida ({{...}}) vira null\nconst txt = (v) => {\n  if (typeof v === 'number') v = String(v);\n  if (typeof v !== 'string') return null;\n  const t = v.trim();\n  if (t === '' || /^\\{\\{.*\\}\\}$/.test(t)) return null;\n  return t;\n};\n// busca chave sem diferenciar maiúscula/minúscula, primeiro em data, depois em data.field\nconst pick = (...nomes) => {\n  for (const src of [d, (d.field && typeof d.field === 'object') ? d.field : {}]) {\n    const mapa = {};\n    for (const k of Object.keys(src)) mapa[k.toLowerCase()] = src[k];\n    for (const n of nomes) { const t = txt(mapa[n.toLowerCase()]); if (t !== null) return t; }\n  }\n  return null;\n};\n\n// telefone: mesma regra da blocklist\nlet tel = String(d.phoneNumber ?? '').replace(/\\D/g, '');\nif (tel.length === 10 || tel.length === 11) tel = '55' + tel;\nif (tel.length < 10 || tel.length > 15) {\n  throw new Error('Eventos CRM: telefone inválido (' + tel.length + ' dígitos após limpeza), contact_id ' + (txt(d.id) ?? 'ausente'));\n}\n\nconst acao = txt(d.Acao);\nif (!acao) throw new Error('Eventos CRM: campo Acao ausente (obrigatório no banco), contact_id ' + (txt(d.id) ?? 'ausente'));\n\n// data do evento: data.Data ou data.eventDate, ISO com data e hora; sem fuso assume -03:00\nconst dataEvento = (v) => {\n  const s = txt(v);\n  if (!s || !/^\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}/.test(s)) return null;\n  const dt = DateTime.fromISO(s.replace(' ', 'T'), { zone: 'UTC-3' });\n  return dt.isValid ? dt.toISO() : null;\n};\nconst ts = dataEvento(d.Data) ?? dataEvento(d.eventDate) ?? DateTime.now().toISO();\n\n// valor: número ou texto BR (R$ 1.234,56); se não converter, não envia\nconst valor = (v) => {\n  if (typeof v === 'number') return Number.isFinite(v) ? v : null;\n  let s = txt(v);\n  if (!s) return null;\n  s = s.replace(/[^0-9,.-]/g, '');\n  if (s.includes(',')) s = s.replace(/\\./g, '').replace(',', '.');\n  const n = Number(s);\n  return s !== '' && Number.isFinite(n) ? n : null;\n};\n\nconst out = { telefone: tel, acao, event_ts: ts, raw_payload: body };\nconst add = (col, v) => { if (v !== null && v !== undefined) out[col] = v; };\nadd('etapa_crm', txt(d.Etapa));\nadd('nome', txt(d.name));\nadd('email', txt(d.email));\nadd('origem', txt(d.Origem));\nadd('proprietario', txt(d.Proprietario));\nadd('conexao', txt(d.conexao));\nadd('pipeline', txt(d.pipeline));\nadd('codigo_copy', txt(d['codigo copy']));\nadd('produto', pick('produto'));\nadd('oferta', pick('oferta'));\nadd('forma_pagamento', pick('forma_pagamento', 'forma de pagamento', 'formaPagamento'));\nadd('motivo_perda', pick('motivo_perda', 'motivo de perda', 'motivoPerda', 'motivo'));\nadd('status', pick('status'));\nadd('valor_total', valor(pick('valor_total', 'valor total', 'valorTotal')));\nadd('valor_liquido', valor(pick('valor_liquido', 'valor liquido', 'valor líquido', 'valorLiquido')));\n\nreturn { json: out };"
+      }
+    },
+    {
+      "name": "Gravar evento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/unnichat_eventos?on_conflict=telefone,acao,etapa_crm,event_ts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "supabaseApi": {
+          "id": "lE0HnMSq3MSGveqV",
+          "name": "[MARTHA] Supabase service role"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Unnichat": {
+      "main": [
+        [
+          {
+            "node": "Mapear evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mapear evento": {
+      "main": [
+        [
+          {
+            "node": "Gravar evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lzBoaNrbFp4FALjY",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all"
+  },
+  "tags": [
+    {
+      "name": "martha"
+    },
+    {
+      "name": "fonte:unnichat"
+    },
+    {
+      "name": "tipo:webhook"
+    }
+  ],
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

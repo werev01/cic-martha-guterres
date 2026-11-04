@@ -146,6 +146,18 @@ Base: faturamento LÍQUIDO individual no mês (vendedor = `utm_source`).
 - [ ] Regra definitiva do valor TMB (hoje 50%). Cobrar o Nirla.
 - [ ] Criar os usuários de Matta, Godoy e dos 4 vendedores (perfis já cadastrados).
 
+### Pendente de teste e validação (n8n e Unnichat, criados às pressas em 04/11)
+- [ ] Token errado nos webhooks: confirmar o status real (doc assume 403) com curl.
+- [ ] Blocklist: conferir a primeira execução real (header `x-cic-token` no Unnichat
+  não foi testado; se errar, o POST falha antes do opt-out).
+- [ ] Eventos CRM: conferir o primeiro evento real de cada uma das 7 automações
+  `[EVENTO]` (header, `Acao` de Ganho e Perdido, campos que chegam).
+- [ ] Eventos CRM: validar se `eventDate` é o momento do evento. Se não for, decidir
+  entre hora do recebimento e outra fonte (efeito na chave em contrato-dados.md).
+- [ ] Eventos CRM: ver se o payload real traz id único do evento pra virar chave.
+- [ ] Eventos CRM: apagar a linha de teste (`raw_payload->'data'->>'id' = 'teste-cic-evt-001'`)
+  com aval.
+
 ## Ordem de execução
 
 1. Docs (este, `padroes-n8n.md`, `referencia-g2.md`) e estrutura do repo.
