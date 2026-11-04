@@ -23,13 +23,15 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261104_0003_unnichat_blocklist.sql` | bruta `unnichat_blocklist` |
 | `20261104_0004_base.sql` | cadastros, funções de papel, RLS, `tmp_claude` + pg_cron |
 | `20261104_0005_comissao.sql` | régua de comissão (`comissao_faixas`, `cic_comissao()`) |
+| `20261104_0006_links_venda_utm.sql` | UTM com sublinhado, `cic_vendedor_de_utm()`, `links_venda`, `cic_meus_links()` |
 
 ## Tabelas de cadastro
 
 | Tabela | Chave | Conteúdo atual |
 |---|---|---|
-| `cic_config` | `chave` | slug, nome, fuso, `tmb_fator_valor` = 0,5 (provisório), `utm_vendedor` (utm_source + `comercial-`), `conversao_alvo` (15% a partir da etapa 2) |
-| `vendedores` | `utm_slug` | 4 vendedores (`comercial-nome-sobrenome`) |
+| `cic_config` | `chave` | slug, nome, fuso, `tmb_fator_valor` = 0,5 (provisório), `utm_vendedor` (utm_source + `comercial_`), `conversao_alvo` (15% a partir da etapa 2) |
+| `vendedores` | `utm_slug` | 4 vendedores (`comercial_nome-sobrenome`, igual ao `utm_source` dos links) |
+| `links_venda` | `id` | link base por produto: Ultra Black 2026 (Opção 1 e Opção 2); o link de cada vendedor sai de `cic_meus_links()` |
 | `perfis` | `email` | 4 admins + 4 vendedores; `user_id` se preenche sozinho quando o usuário é criado no Auth |
 | `perfil_menus` | `papel, menu` | admin: 11 menus; vendedor: minhapagina, relatorios, reembolsos |
 | `crm_etapas` | `ordem` | 0 a 4, com o nome exato do Unnichat |
@@ -48,8 +50,14 @@ avisa; é intencional, só devolvem dados do próprio usuário). anon não chama
 
 ```sql
 -- Novo vendedor: cadastro + perfil (o vínculo com o login é automático pelo e-mail)
-insert into vendedores (utm_slug, nome, email) values ('comercial-nome-sobrenome', 'Nome Sobrenome', 'email@x.com');
-insert into perfis (email, nome, papel, vendedor_slug) values ('email@x.com', 'Nome Sobrenome', 'vendedor', 'comercial-nome-sobrenome');
+insert into vendedores (utm_slug, nome, email) values ('comercial_nome-sobrenome', 'Nome Sobrenome', 'email@x.com');
+insert into perfis (email, nome, papel, vendedor_slug) values ('email@x.com', 'Nome Sobrenome', 'vendedor', 'comercial_nome-sobrenome');
+
+-- Links de venda de todos os vendedores (copiar e mandar pro time)
+select vendedor_nome, rotulo, url from cic_meus_links();
+
+-- Link novo de produto (todo vendedor ganha o seu na hora)
+insert into links_venda (produto, rotulo, url_base, ordem) values ('Produto', 'Opção 3', 'https://pay.hub.la/XXXX', 3);
 
 -- Desligar alguém (perde o acesso na hora, sem apagar histórico)
 update perfis set ativo = false where email = 'email@x.com';

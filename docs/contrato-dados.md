@@ -27,9 +27,10 @@ referência pra montar os workflows. A DDL está em
 
 ## Regras de negócio que afetam a leitura (calculadas nas views)
 
-- **Vendedor da venda = `utm_source`.** O padrão é `comercial-nome-sobrenome` (ex.:
-  `utm_source=comercial-ana-souza`). A view lê só o `utm_source` e cruza com o
-  cadastro de vendedores. Venda sem `comercial-*` no `utm_source` fica como "sem
+- **Vendedor da venda = `utm_source`.** O padrão é `comercial_nome-sobrenome` (ex.:
+  `utm_source=comercial_ana-souza`). A view lê só o `utm_source` e cruza com o
+  cadastro de vendedores tratando `_` e `-` como iguais e ignorando maiúscula
+  (`cic_vendedor_de_utm`). Venda sem `comercial_*` no `utm_source` fica como "sem
   vendedor".
 - **TMB vale 50%** do valor (provisório, parâmetro na config do cliente). A bruta
   guarda o valor cheio.
@@ -133,7 +134,7 @@ Fatura paga e mudanças de status. Reenvio do mesmo `invoice_id` atualiza a linh
 | `installments` | int | |
 | `coupon_code` | text | |
 | `subtotal_cents`, `discount_cents`, `total_cents`, `seller_net_cents` | bigint | centavos |
-| `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` | text | `utm_source` traz o `comercial-*` |
+| `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` | text | `utm_source` traz o `comercial_*` |
 | `sale_date` | timestamptz | data do pagamento |
 | `invoice_created_at`, `invoice_modified_at` | timestamptz | |
 | `raw_payload` | jsonb | **obr.** |
@@ -193,7 +194,7 @@ Um registro por pedido; mudança de status atualiza a linha.
 | `valor_total` | numeric | reais, **valor cheio** (os 50% são aplicados na view) |
 | `parcelas` | int | |
 | `valor_entrada`, `valor_parcela` | numeric | |
-| `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` | text | primeiro toque; `utm_source` traz o `comercial-*` |
+| `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` | text | primeiro toque; `utm_source` traz o `comercial_*` |
 | `utm_last_source`, `utm_last_medium`, `utm_last_campaign`, `utm_last_content` | text | último toque, se a TMB mandar |
 | `criado_em`, `data_efetivado` | timestamptz | |
 | `raw_payload` | jsonb | **obr.** |
@@ -381,7 +382,7 @@ select invoice_id, count(*) from hubla_vendas group by 1 having count(*) > 1;
 -- Campos importantes vazios (sinal de mapeamento errado no n8n)
 select count(*) filter (where sale_date is null)  sem_data,
        count(*) filter (where total_cents is null) sem_valor,
-       count(*) filter (where utm_source is null or utm_source not like 'comercial-%') sem_vendedor
+       count(*) filter (where public.cic_vendedor_de_utm(utm_source) is null) sem_vendedor
 from hubla_vendas;
 ```
 

@@ -92,7 +92,11 @@ Regras:
   vista no G2, ver `docs/referencia-g2.md`).
 
 - Atribuição de venda ao vendedor: sempre pelo `utm_source`, padrão
-  `comercial-nome-sobrenome` (decidido em 03/11/2026).
+  `comercial_nome-sobrenome`, com sublinhado depois de "comercial" (ajustado em
+  04/11/2026 pro padrão dos links que o time já usa). Variação de `_`/`-` e de
+  maiúscula é tolerada na identificação.
+- Links de venda: Ultra Black 2026 (Opção 1 e Opção 2, Hubla). O CIC monta o link de
+  cada vendedor com o `utm_source` dele e mostra na Minha página, com botão de copiar.
 - Campanhas da Martha na Callix seguem o prefixo `[MARTHA]` no nome; é por ele que o
   n8n filtra.
 - Metas de novembro/2026: bronze R$ 100 mil, prata R$ 150 mil, ouro R$ 200 mil.
