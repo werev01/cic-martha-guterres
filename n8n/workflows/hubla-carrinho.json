@@ -3,7 +3,7 @@
   "name": "[MARTHA] Hubla · Carrinho",
   "description": "Recebe da Hubla o carrinho abandonado (lead) e grava em public.hubla_carrinho_abandonado (upsert por lead_id, lead_created_at).",
   "active": true,
-  "versionId": "47f19954-a29b-4c4d-b1b1-ce0a6087c3d5",
+  "versionId": "ef46bf8a-f462-4393-89a5-d1f9ad779b92",
   "nodes": [
     {
       "name": "Webhook Hubla",
@@ -79,6 +79,28 @@
           "name": "[MARTHA] Supabase service role"
         }
       }
+    },
+    {
+      "name": "Enviar pro Unnichat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "<URL_UNNICHAT_CARRINHO_ABANDONADO>",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ name: $json.nome, email: $json.email, phone: (() => { let t = String($json.telefone ?? '').replace(/\\D/g, ''); if (t.length === 10 || t.length === 11) t = '55' + t; return t; })() }) }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notes": "URL real fica só no n8n (dispara fluxo no Unnichat). Não commitar."
     }
   ],
   "connections": {
@@ -98,6 +120,11 @@
         [
           {
             "node": "Gravar carrinho",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar pro Unnichat",
             "type": "main",
             "index": 0
           }
