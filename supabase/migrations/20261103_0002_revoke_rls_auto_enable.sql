@@ -1,0 +1,12 @@
+-- =====================================================================
+-- 0002 · Fecha a chamada pública da função rls_auto_enable()
+-- Projeto: CIC Martha Guterres (zrvrfxhzwzumvetgjure)
+-- Aplicada em 03/11/2026 pelo Nirla, direto no SQL Editor (arquivo só
+-- registra o que já está no banco).
+--
+-- rls_auto_enable() é a função do gatilho de evento ensure_rls do
+-- Supabase, que liga o RLS em toda tabela nova. O advisor apontava que
+-- anon/authenticated podiam chamá-la via /rest/v1/rpc. O gatilho continua
+-- funcionando; só a chamada pela API foi fechada.
+-- =====================================================================
+revoke execute on function public.rls_auto_enable() from public, anon, authenticated;

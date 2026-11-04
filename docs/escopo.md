@@ -66,7 +66,7 @@ Processos.
 | Perfil | Menus | Dados |
 |---|---|---|
 | Admin | todos | todos os projetos/clientes |
-| Vendedor | só os menus liberados (lista a definir; até lá, padrão é só admin) | só o projeto em que atua; se atua em dois, vê as duas views |
+| Vendedor | Minha página, Relatórios e Reembolsos (definido em 04/11/2026) | só o projeto em que atua e só os próprios números; se atua em dois, vê as duas views |
 
 Regras:
 - Login por e-mail e senha. Só a equipe WeRev cria usuários. Antes de criar qualquer
@@ -95,6 +95,15 @@ Regras:
   `comercial-nome-sobrenome` (decidido em 03/11/2026).
 - Campanhas da Martha na Callix seguem o prefixo `[MARTHA]` no nome; é por ele que o
   n8n filtra.
+- Metas de novembro/2026: bronze R$ 100 mil, prata R$ 150 mil, ouro R$ 200 mil.
+- Conversão alvo: 15% de "2. Em Contato" para venda.
+- Etapas do CRM: 0. Base/Entrada, 1. Discadora (Sem Resposta), 2. Em Contato,
+  3. Negociação, 4. Forecast. Motivos de perda: 11, agrupados pelo código entre
+  colchetes ([1] a [4] e [cs]). Cadastro em `docs/banco.md`.
+- Blocklist do Unnichat entra no Supabase (`unnichat_blocklist`); a configuração no
+  Unnichat fica com o Nirla.
+- Usuários: admins Matta, Nirla, Mitsuo e Godoy; vendedores Daniele Silva, Henrique
+  Cabral, Lorena Ruas e Gabriel Poloni. Primeiros logins criados: Nirla e Mitsuo.
 - Callix: conta da WeRev, compartilhada entre operações. Cada workflow filtra pelas
   campanhas da operação antes de gravar (ver `contrato-dados.md`).
 - TMB: venda entra a 50% do valor, PROVISÓRIO até o Nirla definir. Fica como parâmetro
@@ -102,9 +111,10 @@ Regras:
 
 ## Em aberto
 
-- [ ] Quais menus o vendedor enxerga.
 - [ ] Regra definitiva do valor TMB (hoje 50%). Cobrar o Nirla.
-- [ ] Meta do mês: quem preenche e em que formato (por funil, por vendedor, cenários).
+- [ ] Meta do mês: as faixas são sobre faturamento bruto ou líquido (descontando
+      reembolso)? Hoje a tabela só guarda o valor.
+- [ ] Criar os usuários de Matta, Godoy e dos 4 vendedores (perfis já cadastrados).
 - [ ] Publicação: o GitHub Pages "por branch" só serve a raiz ou `/docs`. Como
       `docs/` é documentação, o app em `app/` sai por GitHub Actions. Decidir na
       etapa 5.

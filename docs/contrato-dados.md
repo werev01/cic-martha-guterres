@@ -47,6 +47,7 @@ referência pra montar os workflows. A DDL está em
 | TMB | `tmb_reembolsos` | webhook | `pedido_id` |
 | Unnichat | `unnichat_eventos` | webhook | `telefone,acao,etapa_crm,event_ts` |
 | Unnichat | `unnichat_automacoes` | webhook | `contact_id,telefone,codigo_copy,minuto` |
+| Unnichat | `unnichat_blocklist` | webhook | `telefone` |
 | Unnichat | `unnichat_broadcasts` | coleta agendada (API) | `broadcast_id` |
 | Unnichat | `unnichat_conversas_dia` | coleta diária (API) | `dia,contact_id` |
 | Callix | `callix_ligacoes` | coleta agendada | `protocol` |
@@ -188,6 +189,24 @@ Se o payload do Unnichat trouxer um id único do evento, trocamos a chave pra el
 | `fluxo`, `funil`, `tipo`, `msg` | text | |
 | `cadencia`, `disparo`, `envios` | int | partes do código de copy |
 | `raw_payload` | jsonb | **obr.** |
+
+### `unnichat_blocklist` (webhook `/webhook/martha-guterres/unnichat/blocklist`)
+Contato que pediu pra não receber mais mensagens. Chamado por um passo de requisição
+HTTP nos fluxos de disparo e automação do Unnichat.
+
+| Coluna | Tipo | Nota |
+|---|---|---|
+| `telefone` | text | **obr.** só dígitos com DDI, 10 a 15 dígitos (o banco recusa outro formato) |
+| `contact_id`, `nome` | text | |
+| `origem` | text | nome do fluxo que gerou a saída |
+| `codigo_copy` | text | copy que gerou a saída |
+| `bloqueado_em` | timestamptz | se não mandar, o banco usa a hora do recebimento |
+| `ativo` | boolean | `true` bloqueia (padrão); mandar `false` pra desbloquear |
+| `raw_payload` | jsonb | **obr.** |
+
+Toda lista de disparo gerada no banco exclui `ativo = true`. Formato de telefone
+errado faz o upsert falhar e cai no `[MARTHA] Erros`: tratar na hora, senão o contato
+continua recebendo.
 
 ### `unnichat_broadcasts` (coleta agendada, de hora em hora)
 `broadcast_id` **obr.**, `nome`, `status`, `contatos`, `send_at`, `started_at`,
