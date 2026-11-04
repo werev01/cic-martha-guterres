@@ -1,0 +1,129 @@
+{
+  "id": "V5sIw76nihdp0F5D",
+  "name": "[MARTHA] Hubla · Vendas",
+  "description": "Recebe da Hubla fatura paga e mudanças de status e grava em public.hubla_vendas (upsert por invoice_id).",
+  "active": true,
+  "versionId": "96237bdf-0ba9-48f7-aff1-55b8f50afaf1",
+  "nodes": [
+    {
+      "name": "Webhook Hubla",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "martha-guterres/hubla/vendas",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YSK87BG8qRypgf2J",
+          "name": "[MARTHA] Hubla"
+        }
+      }
+    },
+    {
+      "name": "Mapear venda",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Hubla (v2) -> public.hubla_vendas. Contrato: docs/contrato-dados.md (hubla_vendas).\n// Centavos como a Hubla manda; datas ISO com fuso (sem fuso assume -03:00); vazio vira null.\nconst body = ($json.body && typeof $json.body === 'object') ? $json.body : {};\nconst get = (o, p) => p.split('.').reduce((a, k) => (a && typeof a === 'object') ? a[k] : undefined, o);\nconst first = (...ps) => { for (const p of ps) { const v = get(body, p); if (v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === '')) return v; } return null; };\nconst txt = (v) => (v === null || typeof v === 'object') ? null : (String(v).trim() || null);\nconst int = (v) => { if (v === null || v === '') return null; const n = Number(v); return Number.isFinite(n) ? Math.round(n) : null; };\nconst ts = (v) => { const s = txt(v); if (!s) return null; const dt = DateTime.fromISO(s.replace(' ', 'T'), { zone: 'UTC-3' }); return dt.isValid ? dt.toISO() : null; };\nconst nomeUser = () => txt(first('event.user.name', 'event.user.fullName')) ?? (txt([first('event.user.firstName'), first('event.user.lastName')].filter(Boolean).join(' ')));\n\nconst invoiceId = txt(first('event.invoice.id', 'event.invoiceId'));\nif (!invoiceId) throw new Error('Hubla Vendas: invoice_id ausente (type ' + (txt(body.type) ?? 'ausente') + '). Confira os eventos marcados na regra da Hubla.');\n\nconst receivers = get(body, 'event.invoice.receivers');\nconst seller = Array.isArray(receivers) ? receivers.find(r => r && r.role === 'seller') : null;\nconst utm = (k) => txt(first('event.invoice.paymentSession.utm.' + k, 'event.paymentSession.utm.' + k, 'event.invoice.utm.' + k, 'event.utm.' + k));\n\nreturn { json: {\n  invoice_id: invoiceId,\n  event_type: txt(body.type),\n  status: txt(first('event.invoice.status')),\n  subscription_id: txt(first('event.invoice.subscriptionId', 'event.subscription.id')),\n  product_id: txt(first('event.product.id', 'event.products.0.id', 'event.invoice.product.id')),\n  product_name: txt(first('event.product.name', 'event.products.0.name', 'event.invoice.product.name')),\n  offer_id: txt(first('event.products.0.offers.0.id', 'event.offer.id', 'event.invoice.offer.id')),\n  offer_name: txt(first('event.products.0.offers.0.name', 'event.offer.name', 'event.invoice.offer.name')),\n  payer_id: txt(first('event.invoice.payerId', 'event.user.id')),\n  payer_nome: nomeUser(),\n  payer_email: txt(first('event.user.email')),\n  payer_telefone: txt(first('event.user.phone')),\n  payer_documento: txt(first('event.user.document')),\n  payment_method: txt(first('event.invoice.paymentMethod')),\n  installments: int(first('event.invoice.installments')),\n  coupon_code: txt(first('event.invoice.coupon.code', 'event.invoice.couponCode', 'event.coupon.code')),\n  subtotal_cents: int(first('event.invoice.amount.subtotalCents')),\n  discount_cents: int(first('event.invoice.amount.discountCents')),\n  total_cents: int(first('event.invoice.amount.totalCents')),\n  seller_net_cents: int(seller ? (seller.totalCents ?? seller.netCents ?? null) : first('event.invoice.amount.sellerNetCents')),\n  utm_source: utm('source'), utm_medium: utm('medium'), utm_campaign: utm('campaign'), utm_content: utm('content'), utm_term: utm('term'),\n  sale_date: ts(first('event.invoice.saleDate', 'event.invoice.paidAt')),\n  invoice_created_at: ts(first('event.invoice.createdAt')),\n  invoice_modified_at: ts(first('event.invoice.modifiedAt', 'event.invoice.updatedAt')),\n  raw_payload: body\n} };"
+      }
+    },
+    {
+      "name": "Gravar venda",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/hubla_vendas?on_conflict=invoice_id",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "supabaseApi": {
+          "id": "lE0HnMSq3MSGveqV",
+          "name": "[MARTHA] Supabase service role"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Hubla": {
+      "main": [
+        [
+          {
+            "node": "Mapear venda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mapear venda": {
+      "main": [
+        [
+          {
+            "node": "Gravar venda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lzBoaNrbFp4FALjY",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all"
+  },
+  "tags": [
+    {
+      "name": "martha"
+    },
+    {
+      "name": "fonte:hubla"
+    },
+    {
+      "name": "tipo:webhook"
+    }
+  ],
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}
