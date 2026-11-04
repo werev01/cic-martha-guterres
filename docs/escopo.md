@@ -155,6 +155,12 @@ Base: faturamento LÍQUIDO individual no mês (vendedor = `utm_source`).
 - [ ] Eventos CRM: validar se `eventDate` é o momento do evento. Se não for, decidir
   entre hora do recebimento e outra fonte (efeito na chave em contrato-dados.md).
 - [ ] Eventos CRM: ver se o payload real traz id único do evento pra virar chave.
+- [ ] Hubla Reembolsos: validar os eventos `refund_request.*` no primeiro reembolso real
+  (o teste do painel só mandou `invoice.refunded`).
+- [ ] Hubla Vendas: conferir `payer_documento` na primeira venda real (teste não trazia).
+- [ ] Hubla > Unnichat: as URLs `/a/start/...` dos fluxos ficam só no nó do n8n; no export
+  do repo viram `<URL_UNNICHAT_...>`. Gambiarra por prazo: mover pra credencial ou
+  variável do n8n.
 - [ ] Eventos CRM: apagar a linha de teste (`raw_payload->'data'->>'id' = 'teste-cic-evt-001'`)
   com aval.
 

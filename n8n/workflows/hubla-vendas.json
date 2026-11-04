@@ -3,7 +3,7 @@
   "name": "[MARTHA] Hubla · Vendas",
   "description": "Recebe da Hubla fatura paga e mudanças de status e grava em public.hubla_vendas (upsert por invoice_id).",
   "active": true,
-  "versionId": "96237bdf-0ba9-48f7-aff1-55b8f50afaf1",
+  "versionId": "291b9bba-8fd3-4288-91fa-3c456707510f",
   "nodes": [
     {
       "name": "Webhook Hubla",
@@ -79,6 +79,59 @@
           "name": "[MARTHA] Supabase service role"
         }
       }
+    },
+    {
+      "name": "Só venda aprovada",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "aprovada",
+              "leftValue": "={{ $json.event_type }}",
+              "rightValue": "invoice.payment_succeeded",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Enviar pro Unnichat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "<URL_UNNICHAT_COMPRA_APROVADA>",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ name: $json.payer_nome, email: $json.payer_email, phone: (() => { let t = String($json.payer_telefone ?? '').replace(/\\D/g, ''); if (t.length === 10 || t.length === 11) t = '55' + t; return t; })() }) }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notes": "URL real fica só no n8n (dispara fluxo no Unnichat). Não commitar."
     }
   ],
   "connections": {
@@ -100,8 +153,25 @@
             "node": "Gravar venda",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Só venda aprovada",
+            "type": "main",
+            "index": 0
           }
         ]
+      ]
+    },
+    "Só venda aprovada": {
+      "main": [
+        [
+          {
+            "node": "Enviar pro Unnichat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     }
   },
