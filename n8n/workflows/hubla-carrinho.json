@@ -1,0 +1,129 @@
+{
+  "id": "89YhjmddgQI2SnbX",
+  "name": "[MARTHA] Hubla · Carrinho",
+  "description": "Recebe da Hubla o carrinho abandonado (lead) e grava em public.hubla_carrinho_abandonado (upsert por lead_id, lead_created_at).",
+  "active": true,
+  "versionId": "47f19954-a29b-4c4d-b1b1-ce0a6087c3d5",
+  "nodes": [
+    {
+      "name": "Webhook Hubla",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "martha-guterres/hubla/carrinho",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YSK87BG8qRypgf2J",
+          "name": "[MARTHA] Hubla"
+        }
+      }
+    },
+    {
+      "name": "Mapear carrinho",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Hubla (v2) -> public.hubla_carrinho_abandonado. Contrato: docs/contrato-dados.md.\n// Evento: lead.abandoned_checkout. Chave: lead_id, lead_created_at (sem data, usa a hora do recebimento).\nconst body = ($json.body && typeof $json.body === 'object') ? $json.body : {};\nconst get = (o, p) => p.split('.').reduce((a, k) => (a && typeof a === 'object') ? a[k] : undefined, o);\nconst first = (...ps) => { for (const p of ps) { const v = get(body, p); if (v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === '')) return v; } return null; };\nconst txt = (v) => (v === null || typeof v === 'object') ? null : (String(v).trim() || null);\nconst ts = (v) => { const s = txt(v); if (!s) return null; const dt = DateTime.fromISO(s.replace(' ', 'T'), { zone: 'UTC-3' }); return dt.isValid ? dt.toISO() : null; };\n\nconst leadId = txt(first('event.lead.id', 'event.user.id', 'event.leadId'));\nif (!leadId) throw new Error('Hubla Carrinho: lead_id ausente (type ' + (txt(body.type) ?? 'ausente') + '). Confira os eventos marcados na regra da Hubla.');\nconst nome = txt(first('event.lead.fullName', 'event.lead.name', 'event.user.name')) ?? txt([first('event.lead.firstName', 'event.user.firstName'), first('event.lead.lastName', 'event.user.lastName')].filter(Boolean).join(' '));\nconst utm = (k) => txt(first('event.lead.session.utm.' + k, 'event.session.utm.' + k, 'event.lead.utm.' + k, 'event.utm.' + k, 'event.paymentSession.utm.' + k));\n\nreturn { json: {\n  lead_id: leadId,\n  lead_created_at: ts(first('event.lead.createdAt', 'event.createdAt')) ?? DateTime.now().toISO(),\n  event_type: txt(body.type),\n  nome,\n  email: txt(first('event.lead.email', 'event.user.email')),\n  telefone: txt(first('event.lead.phone', 'event.user.phone')),\n  product_id: txt(first('event.product.id', 'event.products.0.id', 'event.lead.product.id')),\n  product_name: txt(first('event.product.name', 'event.products.0.name', 'event.lead.product.name')),\n  offer_id: txt(first('event.products.0.offers.0.id', 'event.offer.id', 'event.lead.offer.id')),\n  offer_name: txt(first('event.products.0.offers.0.name', 'event.offer.name', 'event.lead.offer.name')),\n  checkout_url: txt(first('event.lead.session.url', 'event.lead.checkoutUrl', 'event.checkoutUrl', 'event.session.url')),\n  utm_source: utm('source'), utm_medium: utm('medium'), utm_campaign: utm('campaign'), utm_content: utm('content'), utm_term: utm('term'),\n  raw_payload: body\n} };"
+      }
+    },
+    {
+      "name": "Gravar carrinho",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/hubla_carrinho_abandonado?on_conflict=lead_id,lead_created_at",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "supabaseApi": {
+          "id": "lE0HnMSq3MSGveqV",
+          "name": "[MARTHA] Supabase service role"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Hubla": {
+      "main": [
+        [
+          {
+            "node": "Mapear carrinho",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mapear carrinho": {
+      "main": [
+        [
+          {
+            "node": "Gravar carrinho",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lzBoaNrbFp4FALjY",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all"
+  },
+  "tags": [
+    {
+      "name": "martha"
+    },
+    {
+      "name": "fonte:hubla"
+    },
+    {
+      "name": "tipo:webhook"
+    }
+  ],
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}
