@@ -3,7 +3,7 @@
 Vale pra todo workflow da operação. Se um caso não estiver coberto aqui, pergunte
 antes de inventar e registre a decisão neste arquivo.
 
-Última atualização: 03/11/2026
+Última atualização: 04/11/2026
 
 ## Onde fica
 
@@ -40,12 +40,13 @@ Nunca compartilhar credencial com outra operação.
 
 | Credencial | Tipo no n8n | Uso |
 |---|---|---|
-| `[MARTHA] Supabase service role` | Supabase API | gravar nas tabelas brutas |
+| `[MARTHA] Supabase service role` | Supabase API (chave `service_role` legada, JWT) | gravar nas tabelas brutas |
 | `[MARTHA] Unnichat` | Header Auth (token da conta da Martha) | chamadas à API do Unnichat |
 | `[MARTHA] Callix` | Header Auth | chamadas à API da Callix |
 | `[MARTHA] Hubla` | Header Auth | validar o token do webhook / chamadas à API |
 | `[MARTHA] TMB` | Header Auth | idem |
-| `[MARTHA] E-mail alertas` | SMTP ou Gmail | workflow de erro |
+| `[MARTHA] E-mail alertas` | Gmail OAuth2 (`ferramentas@werev.com.br`) | workflow de erro |
+| `[MARTHA] Webhook token` | Header Auth (`x-cic-token`) | validar webhooks chamados pelo Unnichat |
 
 Regra: chave e token só dentro de credencial. Nunca colar chave em header, URL ou
 campo de nó (isso vaza no export do JSON).
@@ -102,6 +103,8 @@ Body: objeto ou array de objetos com os campos do contrato
 - Manda e-mail para `ferramentas@werev.com.br`:
   - assunto: `[MARTHA] Erro em <nome do workflow>`;
   - corpo: workflow, nó que falhou, mensagem de erro, horário, link da execução.
+- O error workflow só dispara em execução de produção (trigger ativo), não em
+  execução manual pelo editor. Teste sempre com o workflow publicado.
 - Os nós de gravação ficam com "Retry on fail" ligado (3 tentativas, 5 s de
   intervalo) antes de cair no workflow de erro.
 

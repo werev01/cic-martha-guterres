@@ -1,0 +1,69 @@
+{
+  "id": "lzBoaNrbFp4FALjY",
+  "name": "[MARTHA] Erros",
+  "description": "Workflow de erro da operação Martha: recebe falhas dos workflows [MARTHA] e envia e-mail para ferramentas@werev.com.br.",
+  "active": true,
+  "versionId": "0a651c0e-8719-424a-a768-8bcf0f0297c0",
+  "nodes": [
+    {
+      "id": "0a9a9819-a377-43e0-92f8-f5dfd65c9b1a",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "parameters": {}
+    },
+    {
+      "id": "dae22c42-8c76-401a-b564-4377cbfee914",
+      "name": "Enviar alerta",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [224, 0],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "authentication": "oAuth2",
+        "sendTo": "ferramentas@werev.com.br",
+        "subject": "=[MARTHA] Erro em {{ $json.workflow.name }}",
+        "emailType": "html",
+        "message": "=<p><b>Workflow:</b> {{ $json.workflow.name }} (id {{ $json.workflow.id }})</p>\n<p><b>Nó que falhou:</b> {{ $json.execution?.lastNodeExecuted ?? ($json.trigger ? 'trigger do workflow (execução não chegou a rodar)' : 'não informado') }}</p>\n<p><b>Mensagem de erro:</b> {{ $json.execution?.error?.message ?? $json.trigger?.error?.message ?? 'sem mensagem' }}</p>\n<p><b>Horário (America/Sao_Paulo):</b> {{ $now.setZone('America/Sao_Paulo').toFormat('dd/MM/yyyy HH:mm:ss') }}</p>\n<p><b>Modo:</b> {{ $json.execution?.mode ?? $json.trigger?.mode ?? 'não informado' }}</p>\n<p><b>Execução:</b> {{ $json.execution?.url ? '<a href=\"' + $json.execution.url + '\">' + $json.execution.url + '</a>' : 'sem link (erro no trigger)' }}</p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "webhookId": "1c8e072a-157f-460c-9226-e00e666a5d9a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "3q0ndrWmTXCbrpcN",
+          "name": "[MARTHA] E-mail alertas"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Enviar alerta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all"
+  },
+  "tags": [
+    { "id": "Q1zVhIeWVFm8MUpA", "name": "martha" },
+    { "id": "ifqWCYY9hLBwPmvi", "name": "tipo:erro" }
+  ],
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}
