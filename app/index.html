@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>CIC · WeRev</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Arsenal:wght@400;700&family=Inter+Tight:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/estilo.css">
+</head>
+<body>
+  <!-- Telas de acesso (seletor, login, esqueci, definir senha) -->
+  <main id="acesso" class="acesso" hidden>
+    <section class="acesso-card">
+      <header class="acesso-topo">
+        <div class="assinatura">WEREV<sup>®</sup></div>
+        <p class="acesso-sub">Central de Inteligência Comercial</p>
+        <p class="acesso-cliente" id="acesso-cliente"></p>
+      </header>
+
+      <!-- Seletor de cliente (só aparece com mais de um na config) -->
+      <div id="v-seletor" class="acesso-view" hidden>
+        <h1>Escolha a operação</h1>
+        <div id="lista-clientes" class="lista-clientes"></div>
+      </div>
+
+      <!-- Login -->
+      <form id="v-login" class="acesso-view" hidden novalidate>
+        <h1>Entrar</h1>
+        <label class="campo">
+          <span>E-mail</span>
+          <input id="login-email" type="email" autocomplete="username" required>
+        </label>
+        <label class="campo">
+          <span>Senha</span>
+          <input id="login-senha" type="password" autocomplete="current-password" required>
+        </label>
+        <p class="msg" id="login-msg" role="alert"></p>
+        <button type="submit" class="btn-principal" id="login-btn">Entrar</button>
+        <div class="acesso-links">
+          <button type="button" class="link" id="ir-esqueci">Esqueci minha senha</button>
+          <button type="button" class="link" id="trocar-cliente" hidden>Trocar operação</button>
+        </div>
+      </form>
+
+      <!-- Esqueci a senha -->
+      <form id="v-esqueci" class="acesso-view" hidden novalidate>
+        <h1>Recuperar acesso</h1>
+        <p class="texto">Informe seu e-mail. Se ele tiver acesso ao CIC, você recebe um link para criar uma nova senha.</p>
+        <label class="campo">
+          <span>E-mail</span>
+          <input id="esqueci-email" type="email" autocomplete="username" required>
+        </label>
+        <p class="msg" id="esqueci-msg" role="alert"></p>
+        <button type="submit" class="btn-principal" id="esqueci-btn">Enviar link</button>
+        <div class="acesso-links">
+          <button type="button" class="link" id="voltar-login">Voltar para o login</button>
+        </div>
+      </form>
+
+      <!-- Definir senha (convite e recuperação) -->
+      <form id="v-senha" class="acesso-view" hidden novalidate>
+        <h1 id="senha-titulo">Defina sua senha</h1>
+        <p class="texto" id="senha-texto">Mínimo de 8 caracteres.</p>
+        <label class="campo">
+          <span>Nova senha</span>
+          <input id="senha-1" type="password" autocomplete="new-password" minlength="8" required>
+        </label>
+        <label class="campo">
+          <span>Repita a senha</span>
+          <input id="senha-2" type="password" autocomplete="new-password" minlength="8" required>
+        </label>
+        <p class="msg" id="senha-msg" role="alert"></p>
+        <button type="submit" class="btn-principal" id="senha-btn">Salvar e entrar</button>
+      </form>
+
+      <!-- Sem perfil -->
+      <div id="v-sem-acesso" class="acesso-view" hidden>
+        <h1>Acesso não liberado</h1>
+        <p class="texto">Seu login existe, mas ainda não tem perfil ativo nesta operação. Fale com a equipe WeRev.</p>
+        <button type="button" class="btn-secundario" id="sair-sem-acesso">Sair</button>
+      </div>
+    </section>
+    <footer class="acesso-rodape" id="build-acesso"></footer>
+  </main>
+
+  <!-- CIC (depois do login) -->
+  <div id="cic" class="cic" hidden>
+    <aside class="lateral" id="lateral">
+      <div class="lateral-topo">
+        <div class="assinatura assinatura-clara">WEREV<sup>®</sup></div>
+        <div class="lateral-cliente" id="lateral-cliente"></div>
+      </div>
+      <nav class="menu" id="menu" aria-label="Menu principal"></nav>
+      <div class="lateral-base">
+        <div class="usuario">
+          <div class="usuario-nome" id="usuario-nome"></div>
+          <div class="usuario-papel" id="usuario-papel"></div>
+        </div>
+        <button type="button" class="btn-sair" id="btn-sair"><span class="ic" data-ic="sair"></span>Sair</button>
+        <div class="build" id="build-cic"></div>
+      </div>
+    </aside>
+    <button type="button" class="btn-menu" id="btn-menu" aria-label="Abrir menu" aria-expanded="false"><span></span><span></span><span></span></button>
+    <main class="conteudo" id="conteudo">
+      <header class="conteudo-topo">
+        <h1 id="tela-titulo"></h1>
+        <p id="tela-desc" class="tela-desc"></p>
+      </header>
+      <section class="painel-vazio">
+        <span class="ic ic-grande" id="tela-icone"></span>
+        <h2>Em construção</h2>
+        <p>Esta tela entra no ar assim que os dados das integrações começarem a chegar.</p>
+      </section>
+    </main>
+  </div>
+
+  <script src="config/clientes.js"></script>
+  <script src="assets/icones.js"></script>
+  <script src="vendor/supabase-2.49.4/supabase.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>

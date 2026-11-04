@@ -102,6 +102,11 @@ Regras:
   colchetes ([1] a [4] e [cs]). Cadastro em `docs/banco.md`.
 - Blocklist do Unnichat entra no Supabase (`unnichat_blocklist`); a configuração no
   Unnichat fica com o Nirla.
+- Metas são sobre faturamento LÍQUIDO (descontando reembolso), decidido em 04/11/2026.
+- Publicação: a pasta `app/` sai no GitHub Pages por GitHub Actions
+  (`.github/workflows/pages.yml`). Visual segue `docs/marca.md`; sem emoji.
+- Acesso: convite pelo Supabase (Authentication > Users > Invite user). O link cai na
+  tela "Defina sua senha" do CIC.
 - Usuários: admins Matta, Nirla, Mitsuo e Godoy; vendedores Daniele Silva, Henrique
   Cabral, Lorena Ruas e Gabriel Poloni. Primeiros logins criados: Nirla e Mitsuo.
 - Callix: conta da WeRev, compartilhada entre operações. Cada workflow filtra pelas
@@ -112,12 +117,9 @@ Regras:
 ## Em aberto
 
 - [ ] Regra definitiva do valor TMB (hoje 50%). Cobrar o Nirla.
-- [ ] Meta do mês: as faixas são sobre faturamento bruto ou líquido (descontando
-      reembolso)? Hoje a tabela só guarda o valor.
 - [ ] Criar os usuários de Matta, Godoy e dos 4 vendedores (perfis já cadastrados).
-- [ ] Publicação: o GitHub Pages "por branch" só serve a raiz ou `/docs`. Como
-      `docs/` é documentação, o app em `app/` sai por GitHub Actions. Decidir na
-      etapa 5.
+- [ ] Arquivos vetoriais (SVG) da assinatura e do símbolo WeRev.
+- [ ] Licença web da Neue Montreal (hoje o CIC usa Inter Tight no lugar).
 
 ## Ordem de execução
 
