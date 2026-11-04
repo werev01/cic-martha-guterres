@@ -3,7 +3,7 @@
   "name": "[MARTHA] Hubla · Recusadas",
   "description": "Recebe da Hubla o pagamento de fatura que falhou e grava em public.hubla_recusadas (upsert por invoice_id, failed_at).",
   "active": true,
-  "versionId": "6ddd10f3-5513-4238-818d-18c0517457a3",
+  "versionId": "aef6b865-ac88-4769-92aa-aa6e80cdafa1",
   "nodes": [
     {
       "name": "Webhook Hubla",
@@ -79,6 +79,28 @@
           "name": "[MARTHA] Supabase service role"
         }
       }
+    },
+    {
+      "name": "Enviar pro Unnichat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "<URL_UNNICHAT_COMPRA_RECUSADA>",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ name: $json.payer_nome, email: $json.payer_email, phone: (() => { let t = String($json.payer_telefone ?? '').replace(/\\D/g, ''); if (t.length === 10 || t.length === 11) t = '55' + t; return t; })() }) }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notes": "URL real fica só no n8n (dispara fluxo no Unnichat). Não commitar."
     }
   ],
   "connections": {
@@ -98,6 +120,11 @@
         [
           {
             "node": "Gravar recusa",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar pro Unnichat",
             "type": "main",
             "index": 0
           }
