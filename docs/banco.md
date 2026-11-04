@@ -22,6 +22,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261103_0002_revoke_rls_auto_enable.sql` | fechou a chamada pública da `rls_auto_enable()` |
 | `20261104_0003_unnichat_blocklist.sql` | bruta `unnichat_blocklist` |
 | `20261104_0004_base.sql` | cadastros, funções de papel, RLS, `tmp_claude` + pg_cron |
+| `20261104_0005_comissao.sql` | régua de comissão (`comissao_faixas`, `cic_comissao()`) |
 
 ## Tabelas de cadastro
 
@@ -34,6 +35,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `crm_etapas` | `ordem` | 0 a 4, com o nome exato do Unnichat |
 | `motivos_perda` | `nome_unnichat` | 11 motivos, grupo = código entre colchetes |
 | `metas` | `mes, nivel` | nov/2026: bronze 100k, prata 150k, ouro 200k |
+| `comissao_faixas` | `vigencia_inicio, nivel` | nov/2026: nível 1 (> 0) 1%, nível 2 (> 45 mil) 1,5%, nível 3 (> 70 mil) 2%; regra `sobre_total` em `cic_config` |
 | `dim_calendario` | `data` | nov e dez/2026; dia útil = seg a sex sem feriado nacional (19 em novembro) |
 
 ## Funções de papel
@@ -57,6 +59,13 @@ insert into metas (mes, nivel, valor) values ('2026-12-01','bronze',0), ('2026-1
 
 -- Liberar mais um menu pro vendedor
 insert into perfil_menus (papel, menu, ordem) values ('vendedor', 'desempenho', 4);
+
+-- Simular comissão (faturamento líquido, mês)
+select * from cic_comissao(80000, '2026-11-01');
+
+-- Régua nova a partir de um mês (não altera os meses anteriores)
+insert into comissao_faixas (vigencia_inicio, nivel, nome, acima_de, pct) values
+  ('2027-01-01',1,'Nível 1',0,0.01), ('2027-01-01',2,'Nível 2',45000,0.015), ('2027-01-01',3,'Nível 3',70000,0.02);
 
 -- Mudar o fator da TMB
 update cic_config set valor = '1', atualizado_em = now() where chave = 'tmb_fator_valor';

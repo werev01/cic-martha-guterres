@@ -51,7 +51,7 @@ G2" diz qual aba do `werev01/cic-g2` serve de base (ver `docs/referencia-g2.md`)
 | 3 | Mensageria | `infraestrutura` | |
 | 4 | Discadora | `discadora` | gráfico "Velocidade de atendimento ao lead" |
 | 5 | Desempenho individual | `vendedores` | "Análise por Vendedor"; "Rondas do Dia" |
-| 6 | Minha página | `minhapagina` | Régua de níveis; Bônus; Evolução e Comparativo |
+| 6 | Minha página | `minhapagina` | Bônus; Evolução e Comparativo (a Régua de níveis VOLTA, com a régua de comissão abaixo) |
 | 7 | Relatórios | `relatorios` | |
 | 8 | Taxa de passagem | `taxapassagem` | "O que fica e o que sai · equipe"; "Análise Inteligência Comercial WeRev"; "Conversão Real por vendedor"; "Conversão real do recorte"; "Evolução no tempo"; "Quantos leads/hora pra fazer 2 vendas/hora?" |
 | 9 | Motivos de Perda | `motivosperda` | |
@@ -113,6 +113,33 @@ Regras:
   campanhas da operação antes de gravar (ver `contrato-dados.md`).
 - TMB: venda entra a 50% do valor, PROVISÓRIO até o Nirla definir. Fica como parâmetro
   da config do cliente; a bruta guarda o valor cheio.
+
+## Comissão do vendedor (decidido em 04/11/2026)
+
+Base: faturamento LÍQUIDO individual no mês (vendedor = `utm_source`).
+
+| Nível | Faturamento líquido no mês | % |
+|---|---|---|
+| 1 | até R$ 45.000 | 1% |
+| 2 | de R$ 45.000,01 a R$ 70.000 | 1,5% |
+| 3 | acima de R$ 70.000 | 2% |
+
+- A % do nível atingido vale **sobre o total** (ex.: R$ 80 mil = 2% de 80 mil =
+  R$ 1.600). Atenção ao degrau: R$ 70.000 paga R$ 1.050 e R$ 70.000,01 paga R$ 1.400.
+- Vale de novembro/2026 em diante, igual pra todos os vendedores.
+- Faturamento líquido:
+  - Hubla: valor líquido do vendedor (`seller_net`, já sem a taxa da Hubla);
+  - TMB: valor x fator da config (0,5 provisório) ou o líquido da TMB, se vier no
+    payload;
+  - reembolso abate no mês em que acontece, não no mês da venda (mês fechado não
+    muda).
+- Onde aparece:
+  - Minha página (vendedor): régua de níveis com faturamento líquido do mês, nível
+    atual, quanto falta pro próximo e comissão estimada;
+  - Desempenho individual (admin): a mesma conta pra todos os vendedores.
+- Bônus continua fora.
+- Banco: `comissao_faixas` (faixas por vigência) + `cic_config.comissao_regra` +
+  função `cic_comissao(faturamento, mês)`.
 
 ## Em aberto
 
