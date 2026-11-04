@@ -66,7 +66,55 @@ Legenda das colunas: **obr.** = obrigatório (sem ele o upsert falha).
 
 ## Hubla
 
-Webhook: `/webhook/martha-guterres/hubla/eventos`, com Switch pelo tipo de evento.
+Um webhook por tabela (decidido em 04/11/2026, substitui o webhook único com Switch).
+Cada regra na Hubla (Integrações > Automações > Webhook > Configurações) aponta pra
+um path e marca só os eventos daquela tabela. Os webhooks da Hubla pro Unnichat
+continuam como estavam; os do n8n são regras adicionais.
+
+| Workflow | Path | Eventos marcados na Hubla | Tabela |
+|---|---|---|---|
+| `[MARTHA] Hubla · Vendas` | `/webhook/martha-guterres/hubla/vendas` | Pagamento da fatura realizado, Status da fatura atualizada | `hubla_vendas` |
+| `[MARTHA] Hubla · Reembolsos` | `/webhook/martha-guterres/hubla/reembolsos` | Solicitação de reembolso criada/aceita/rejeitada/cancelada, Fatura reembolsada | `hubla_reembolsos` |
+| `[MARTHA] Hubla · Carrinho` | `/webhook/martha-guterres/hubla/carrinho` | Carrinho abandonado (lead) | `hubla_carrinho_abandonado` |
+| `[MARTHA] Hubla · Recusadas` | `/webhook/martha-guterres/hubla/recusadas` | Pagamento da fatura falhou | `hubla_recusadas` |
+
+Autenticação: header `x-hubla-token` (token da aba Autenticação da integração de
+webhook da Hubla), credencial `[MARTHA] Hubla`. Na regra, filtrar pelos produtos da
+Martha (a regra permite escolher produtos e ofertas).
+
+**Mapeamento** (payload v2: `type` + `event`). O workflow tenta mais de um caminho por
+campo e grava o primeiro que existir; vazio vira `null`. Datas: ISO com fuso (sem fuso
+assume -03:00). Centavos como a Hubla manda.
+
+| Coluna | Caminho no payload |
+|---|---|
+| `event_type` | `type` |
+| `invoice_id` | `event.invoice.id` (reembolso: também `event.refundRequest.invoiceId`) |
+| `status`, `payment_method`, `installments` | `event.invoice.status`, `.paymentMethod`, `.installments` |
+| `subscription_id` | `event.invoice.subscriptionId` ou `event.subscription.id` |
+| `product_id`, `product_name` | `event.product.*` ou `event.products[0].*` |
+| `offer_id`, `offer_name` | `event.products[0].offers[0].*` ou `event.offer.*` |
+| `payer_id` | `event.invoice.payerId` ou `event.user.id` |
+| `payer_nome` | `event.user.firstName` + `lastName` (ou `name`/`fullName`) |
+| `payer_email`, `payer_telefone`, `payer_documento` | `event.user.email`, `.phone`, `.document` (telefone como a Hubla manda) |
+| `coupon_code` | `event.invoice.coupon.code` |
+| `subtotal_cents`, `discount_cents`, `total_cents` | `event.invoice.amount.*Cents` |
+| `seller_net_cents` | `totalCents` do recebedor com `role = seller` em `event.invoice.receivers` |
+| `utm_*` | `event.invoice.paymentSession.utm.*` |
+| `sale_date`, `invoice_created_at`, `invoice_modified_at` | `event.invoice.saleDate`, `.createdAt`, `.modifiedAt` |
+| `refund_id`, `refund_status`, `refund_description`, `refund_feedback`, `is_auto_accepted`, `refund_created_at` | `event.refundRequest.*` |
+| `refunded_at` | `event.refundRequest.acceptedAt`; em `invoice.refunded`, `event.invoice.modifiedAt` |
+| `lead_id`, `nome`, `email`, `telefone` | `event.lead.id`, `.fullName`, `.email`, `.phone` |
+| `lead_created_at` | `event.lead.createdAt`; sem ela, hora do recebimento |
+| `checkout_url`, `utm_*` (carrinho) | `event.lead.session.url`, `event.lead.session.utm.*` |
+| `failed_at` | `event.invoice.failedAt`, senão `event.invoice.modifiedAt`; sem nenhuma, hora do recebimento |
+
+Sem a chave principal (`invoice_id` ou `lead_id`), o workflow para com erro e cai no
+`[MARTHA] Erros` (sinal de evento errado marcado na regra).
+
+**Pendente:** os caminhos acima seguem o formato v2 conhecido da Hubla; a página de
+payload de exemplo da doc não abriu. Validar com o "Testar configuração" do painel e
+ajustar o que vier diferente (o dado fica no `raw_payload` de qualquer jeito).
 
 ### `hubla_vendas`
 Fatura paga e mudanças de status. Reenvio do mesmo `invoice_id` atualiza a linha
