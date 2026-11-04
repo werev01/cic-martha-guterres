@@ -118,8 +118,6 @@ Regras:
 
 - [ ] Regra definitiva do valor TMB (hoje 50%). Cobrar o Nirla.
 - [ ] Criar os usuários de Matta, Godoy e dos 4 vendedores (perfis já cadastrados).
-- [ ] Arquivos vetoriais (SVG) da assinatura e do símbolo WeRev.
-- [ ] Licença web da Neue Montreal (hoje o CIC usa Inter Tight no lugar).
 
 ## Ordem de execução
 

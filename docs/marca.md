@@ -33,19 +33,24 @@ Regras:
 | Fonte | Uso | No CIC |
 |---|---|---|
 | Arsenal (Regular, Negrito) | títulos, assinatura | Google Fonts |
-| Neue Montreal (Leve, Regular, Médio, Negrito) | texto corrido, interface | **pendente**: é fonte comercial; enquanto não houver o arquivo web licenciado, usar **Inter Tight** como substituta |
+| Neue Montreal (Leve, Regular, Médio, Negrito) | texto corrido, interface | substituída por **Inter Tight** no CIC (decisão de 04/11/2026: fonte parecida é suficiente) |
 
 Números de dashboard em fonte tabular (alinhamento de dígitos).
 
 ## Logo e símbolo
 
-- Assinatura: `WEREV` em caixa alta, espaçamento largo, com ®.
-- Símbolo: dois "R" espelhados formando uma ampulheta (equilíbrio, continuidade,
-  evolução).
-- Aplicações: claro (Grey/Linen) sobre Navy, Whiskey sobre Linen.
-- **Pendente**: arquivos vetoriais (SVG) da assinatura e do símbolo. Até chegarem, o CIC
-  mostra a assinatura em texto (Arsenal, caixa alta, espaçamento largo) e não desenha o
-  símbolo à mão.
+- Assinatura: `WEREV` em caixa alta, espaçamento largo, com ®. No CIC é texto
+  (Arsenal), não imagem.
+- Símbolo (versão atual, manual "Ampulheta v2"): duas letras V espelhadas formando uma
+  ampulheta, com o encontro central interrompido. Traço grosso à esquerda e fino à
+  direita, em contraste com a tipografia.
+- Arquivos no repo (vetorizados a partir do PDF, não há SVG oficial):
+  - `app/assets/marca/simbolo.svg`: símbolo em `currentColor` (assume a cor do texto);
+  - `app/assets/marca/favicon.svg`: símbolo Linen sobre quadrado Navy, traço reforçado
+    pra ler em 16 a 32 px;
+  - `app/assets/marca/favicon-32.png` e `apple-touch-icon.png` (180 px).
+- Aplicações: Navy sobre Linen (login), Linen sobre Navy (menu, ícone da aba).
+- A versão anterior (dois R espelhados) saiu de uso.
 
 ## Ícones
 

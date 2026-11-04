@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Símbolo WeRev (ampulheta de dois V) sobre navy. Traço reforçado pra ler em 16-32 px. -->
+  <rect width="64" height="64" rx="12" fill="#1f2b38"/>
+  <g transform="translate(17 8.5) scale(0.05)">
+    <path fill="#e6dfdd" stroke="#e6dfdd" stroke-width="34" stroke-linejoin="miter" fill-rule="evenodd" d="M590 0 L0 0 L168 460 L4 920 L595 920 L425 460 Z M550 16 L392 460 L555 904 L106 904 L263 460 L100 16 Z"/>
+  </g>
+</svg>

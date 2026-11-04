@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-04a';
-  var MUDANCAS = 'login, definir senha, recuperação, menu por perfil';
+  var BUILD = '2026-11-04b';
+  var MUDANCAS = 'símbolo WeRev (ampulheta) no login, no menu e como ícone da aba';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -23,6 +23,8 @@
     ciclovenda:    { rotulo: 'Ciclo de vendas',       desc: 'Tempo do primeiro contato até a venda.' },
     reembolsos:    { rotulo: 'Reembolsos',            desc: 'Reembolsos e cancelamentos.' }
   };
+  // Símbolo WeRev (dois V espelhados, ampulheta). Fonte: assets/marca/simbolo.svg
+  var SIMBOLO = 'M590 0 L0 0 L168 460 L4 920 L595 920 L425 460 Z M550 16 L392 460 L555 904 L106 904 L263 460 L100 16 Z';
   var PAPEIS = { admin: 'Administrador', vendedor: 'Vendedor' };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -295,6 +297,10 @@
   });
   window.addEventListener('hashchange', rota);
   icone(document.querySelector('[data-ic="sair"]'), 'sair');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-simbolo]'), function (el) {
+    el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 595 920" aria-hidden="true">' +
+      '<path fill="currentColor" fill-rule="evenodd" d="' + SIMBOLO + '"/></svg>';
+  });
 
   // ---------- início ----------
   var link = lerHash();

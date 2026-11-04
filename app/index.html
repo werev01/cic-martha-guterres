@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>CIC · WeRev</title>
+  <link rel="icon" href="assets/marca/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/marca/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/marca/apple-touch-icon.png">
+  <meta name="theme-color" content="#1f2b38">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Arsenal:wght@400;700&family=Inter+Tight:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -15,6 +19,7 @@
   <main id="acesso" class="acesso" hidden>
     <section class="acesso-card">
       <header class="acesso-topo">
+        <span class="simbolo simbolo-acesso" data-simbolo></span>
         <div class="assinatura">WEREV<sup>®</sup></div>
         <p class="acesso-sub">Central de Inteligência Comercial</p>
         <p class="acesso-cliente" id="acesso-cliente"></p>
@@ -90,7 +95,10 @@
   <div id="cic" class="cic" hidden>
     <aside class="lateral" id="lateral">
       <div class="lateral-topo">
-        <div class="assinatura assinatura-clara">WEREV<sup>®</sup></div>
+        <div class="marca-lateral">
+          <span class="simbolo simbolo-lateral" data-simbolo></span>
+          <div class="assinatura assinatura-clara">WEREV<sup>®</sup></div>
+        </div>
         <div class="lateral-cliente" id="lateral-cliente"></div>
       </div>
       <nav class="menu" id="menu" aria-label="Menu principal"></nav>

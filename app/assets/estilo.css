@@ -44,6 +44,11 @@ input { font: inherit; }
 }
 .assinatura sup { font-size: 9px; letter-spacing: 0; vertical-align: top; margin-left: -.3em; }
 .assinatura-clara { color: var(--grey); font-size: 20px; padding-left: 0; }
+.simbolo { display: inline-block; }
+.simbolo svg { display: block; width: 100%; height: 100%; }
+.simbolo-acesso { width: 34px; height: 52px; color: var(--navy); margin-bottom: 18px; }
+.marca-lateral { display: flex; align-items: center; gap: 12px; }
+.simbolo-lateral { width: 17px; height: 26px; color: var(--linen); }
 
 /* ---------- Acesso ---------- */
 .acesso {
