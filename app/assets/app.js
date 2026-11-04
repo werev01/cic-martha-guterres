@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-04b';
-  var MUDANCAS = 'símbolo WeRev (ampulheta) no login, no menu e como ícone da aba';
+  var BUILD = '2026-11-04c';
+  var MUDANCAS = 'Minha página: links de venda por vendedor com botão de copiar';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -215,10 +215,63 @@
     $('tela-titulo').textContent = t.rotulo;
     $('tela-desc').textContent = t.desc;
     icone($('tela-icone'), m);
+    $('bloco-links').hidden = m !== 'minhapagina';
+    if (m === 'minhapagina') carregarLinks();
     Array.prototype.forEach.call(document.querySelectorAll('.menu a'), function (a) {
       a.classList.toggle('ativo', a.dataset.menu === m);
     });
     fecharGaveta();
+  }
+
+  // ---------- Minha página: links de venda ----------
+  function carregarLinks() {
+    var lista = $('links-lista');
+    lista.innerHTML = '<p class="links-vazio">Carregando...</p>';
+    $('links-sub').textContent = perfil.papel === 'admin'
+      ? 'Links de cada vendedor. A venda entra no nome de quem está no link.'
+      : 'Use sempre estes links: é por eles que a venda entra no seu nome.';
+    sb.rpc('cic_meus_links').then(function (r) {
+      lista.innerHTML = '';
+      if (r.error) { lista.innerHTML = '<p class="links-vazio"></p>'; lista.firstChild.textContent = traduzErro(r.error); return; }
+      if (!r.data.length) { lista.innerHTML = '<p class="links-vazio">Nenhum link cadastrado.</p>'; return; }
+      var grupos = {};
+      r.data.forEach(function (l) { (grupos[l.vendedor_nome] = grupos[l.vendedor_nome] || []).push(l); });
+      Object.keys(grupos).forEach(function (nome) {
+        var g = document.createElement('div');
+        g.className = 'links-grupo';
+        if (perfil.papel === 'admin') {
+          var h = document.createElement('h3'); h.textContent = nome; g.appendChild(h);
+        }
+        grupos[nome].forEach(function (l) {
+          var row = document.createElement('div'); row.className = 'link-venda';
+          var info = document.createElement('div'); info.className = 'link-info';
+          var n = document.createElement('div'); n.className = 'link-nome'; n.textContent = l.produto + ' · ' + l.rotulo;
+          var u = document.createElement('div'); u.className = 'link-url'; u.textContent = l.url; u.title = l.url;
+          info.appendChild(n); info.appendChild(u);
+          var b = document.createElement('button'); b.type = 'button'; b.className = 'btn-copiar'; b.textContent = 'Copiar';
+          b.addEventListener('click', function () { copiar(l.url, b); });
+          row.appendChild(info); row.appendChild(b); g.appendChild(row);
+        });
+        lista.appendChild(g);
+      });
+    });
+  }
+
+  function copiar(texto, botao) {
+    var ok = function () {
+      botao.textContent = 'Copiado'; botao.classList.add('ok');
+      setTimeout(function () { botao.textContent = 'Copiar'; botao.classList.remove('ok'); }, 1800);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(texto).then(ok, function () { copiarAntigo(texto); ok(); });
+    } else { copiarAntigo(texto); ok(); }
+  }
+  function copiarAntigo(texto) {
+    var t = document.createElement('textarea');
+    t.value = texto; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.appendChild(t); t.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(t);
   }
 
   function sair() {
