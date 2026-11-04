@@ -208,6 +208,32 @@ Toda lista de disparo gerada no banco exclui `ativo = true`. Formato de telefone
 errado faz o upsert falhar e cai no `[MARTHA] Erros`: tratar na hora, senão o contato
 continua recebendo.
 
+**Origem no Unnichat:** automação `[COMERCIAL] Negócio fechado perdido - BLOCKLIST`
+(conexão Martha Guterres 0209; a 8538 está em desuso e não tem blocklist). Gatilho
+filtra por motivo de perda. Passos: tag > arquivar > POST (este webhook) > opt-out
+nativo. O opt-out é obrigatoriamente o último passo no Unnichat.
+
+**Body recebido:** varia entre automações. O workflow só depende de `data.phoneNumber`.
+Exemplo atual:
+`{"data":{"id","name","email","phoneNumber","field":{...,"Origem"},"profilePicUrl","eventDate"}}`
+
+**Mapeamento** (workflow `[MARTHA] Unnichat · Blocklist`, nó "Mapear contato"):
+
+| Coluna | De onde vem |
+|---|---|
+| `telefone` | `data.phoneNumber` só com dígitos; 10 ou 11 dígitos ganham `55` na frente. Fora de 10 a 15 dígitos o workflow para com erro (vai pro `[MARTHA] Erros`). Nono dígito não é normalizado aqui (fica pra view de disparo) |
+| `contact_id` | `data.id` |
+| `nome` | `data.name` |
+| `origem` | `fluxo` no topo do body ou, se não houver, `data.fluxo` |
+| `codigo_copy` | `data.codigoCopy` ou `data.field["Código Copy"]` |
+| `bloqueado_em` | `data.eventDate` só se for ISO com data e hora (sem fuso assume -03:00); senão a coluna não é enviada e o banco usa a hora do recebimento |
+| `ativo` | sempre `true`. Não existe desbloqueio nesta operação |
+| `raw_payload` | body inteiro |
+
+Campo ausente ou vazio não é enviado (em vez de `null`), pra não apagar valor já gravado
+quando outro envio chega com body mais pobre. `email` e `profilePicUrl` são ignorados
+(ficam só no `raw_payload`).
+
 ### `unnichat_broadcasts` (coleta agendada, de hora em hora)
 `broadcast_id` **obr.**, `nome`, `status`, `contatos`, `send_at`, `started_at`,
 `finished_at`, contadores `tpl_enviados/entregues/lidos/falhas` e

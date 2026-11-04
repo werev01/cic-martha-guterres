@@ -1,0 +1,136 @@
+{
+  "id": "NRyaPuKYdu1WcKYF",
+  "name": "[MARTHA] Unnichat · Blocklist",
+  "description": "Recebe do Unnichat (automação de negócio perdido) os contatos que pediram pra sair e grava em public.unnichat_blocklist (upsert por telefone).",
+  "active": true,
+  "versionId": "11743e38-dce8-467e-a503-a4538612c104",
+  "nodes": [
+    {
+      "id": "f0ad6752-7439-4e8f-8c5f-25734a6a12ad",
+      "name": "Webhook Unnichat",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "martha-guterres/unnichat/blocklist",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "af01024e-154d-4f3a-b8ef-0bdf9a6e904a",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Pj1OSK5PZLP63InH",
+          "name": "[MARTHA] Webhook token"
+        }
+      }
+    },
+    {
+      "id": "c725df1b-379f-4b24-85f3-afc0a78b9ce3",
+      "name": "Mapear contato",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Mapeia o body do Unnichat para public.unnichat_blocklist.\n// Contrato: docs/contrato-dados.md (unnichat_blocklist). Só data.phoneNumber é obrigatório.\nconst body = ($json.body && typeof $json.body === 'object') ? $json.body : {};\nconst d = (body.data && typeof body.data === 'object') ? body.data : {};\n\n// texto limpo; vazio ou ausente vira null (e a coluna não é enviada)\nconst txt = (v) => {\n  if (typeof v === 'number') v = String(v);\n  if (typeof v !== 'string') return null;\n  const t = v.trim();\n  return t === '' ? null : t;\n};\n\n// telefone: só dígitos; 10 ou 11 dígitos ganham 55; precisa terminar com 10 a 15\nlet tel = String(d.phoneNumber ?? '').replace(/\\D/g, '');\nif (tel.length === 10 || tel.length === 11) tel = '55' + tel;\nif (tel.length < 10 || tel.length > 15) {\n  throw new Error('Blocklist: telefone inválido (' + tel.length + ' dígitos após limpeza), contact_id ' + (txt(d.id) ?? 'ausente'));\n}\n\n// data do evento: só ISO com data e hora; sem fuso assume -03:00\nconst dataEvento = (v) => {\n  const s = txt(v);\n  if (!s || !/^\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}/.test(s)) return null;\n  const dt = DateTime.fromISO(s.replace(' ', 'T'), { zone: 'UTC-3' });\n  return dt.isValid ? dt.toISO() : null;\n};\n\nconst out = { telefone: tel, ativo: true, raw_payload: body };\nconst add = (col, v) => { const t = txt(v); if (t !== null) out[col] = t; };\nadd('contact_id', d.id);\nadd('nome', d.name);\nadd('origem', body.fluxo ?? d.fluxo);\nadd('codigo_copy', d.codigoCopy ?? (d.field && d.field['Código Copy']));\nconst be = dataEvento(d.eventDate);\nif (be) out.bloqueado_em = be;\n\nreturn { json: out };"
+      }
+    },
+    {
+      "id": "4c8250ed-78de-40b0-9e71-b432d1404423",
+      "name": "Gravar blocklist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/unnichat_blocklist?on_conflict=telefone",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "supabaseApi": {
+          "id": "lE0HnMSq3MSGveqV",
+          "name": "[MARTHA] Supabase service role"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Unnichat": {
+      "main": [
+        [
+          {
+            "node": "Mapear contato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mapear contato": {
+      "main": [
+        [
+          {
+            "node": "Gravar blocklist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lzBoaNrbFp4FALjY",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all"
+  },
+  "tags": [
+    {
+      "id": "Q1zVhIeWVFm8MUpA",
+      "name": "martha"
+    },
+    {
+      "id": "ERc7KbpshxaVshfo",
+      "name": "fonte:unnichat"
+    },
+    {
+      "id": "iE4ezYEDzTSLh7Iu",
+      "name": "tipo:webhook"
+    }
+  ],
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

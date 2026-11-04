@@ -66,7 +66,13 @@ Path: `/webhook/martha-guterres/<fonte>/<evento>`
   tipo do payload). Se a fonte exigir um endpoint por evento, usar
   `/<fonte>/<evento>` (ex.: `/hubla/vendas`).
 - Quando a fonte manda token de verificação (ex.: header da Hubla), o webhook valida
-  e responde 401 se não bater.
+  pela autenticação do próprio nó Webhook (Header Auth) e recusa se não bater. Com
+  Header Auth, o n8n devolve 403 (esperado pelo comportamento padrão do n8n; ainda
+  não verificado com curl nesta instância). O workflow não chega a executar.
+- Webhooks chamados pelo Unnichat usam a credencial `[MARTHA] Webhook token`
+  (header `x-cic-token`). No Unnichat, o opt-out nativo é obrigatoriamente o último
+  passo da automação, então o POST pro n8n vem antes dele: se o token estiver errado,
+  o bloqueio no banco não acontece. Conferir a primeira execução real após ativar.
 - Responder 200 rápido; o processamento vem depois do nó de resposta quando for
   pesado.
 - Fuso do workflow: `America/Sao_Paulo`. No banco, tudo em `timestamptz`.
