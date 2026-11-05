@@ -11,7 +11,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 |---|---|---|
 | Bruta | 22 tabelas alimentadas pelo n8n (`hubla_*`, `tmb_*`, `unnichat_*`, `callix_*`). Contrato em `contrato-dados.md` | ninguém do app (RLS sem policy, sem grant) |
 | Cadastro | config, vendedores, perfis, menus, etapas, motivos, metas, calendário | app, via RLS |
-| Tratada | views que o app consome (ainda não criadas: entram com os primeiros payloads) | app, via RLS |
+| Tratada | funções RPC `security definer` com o filtro de perfil dentro (0012) | app, via `rpc()` |
 | `tmp_claude` | views de trabalho/diagnóstico, validade de 12h | só ferramentas |
 
 ## Migrations aplicadas
@@ -29,6 +29,24 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261105_0009_unnichat_templates.sql` | bruta `unnichat_templates` (id da Meta -> nome e categoria), alimentada pela coleta de automações |
 | `20261105_0010_conversas_tpl_vendedor.sql` | `unnichat_conversas_dia`: `tpl_vendedor_utl`/`_mkt` viram `tpl_vendedor` (desfeita na 0011) |
 | `20261105_0011_conversas_tpl_vendedor_categoria.sql` | volta `tpl_vendedor_utl`/`_mkt` (a API REST traz a categoria do template) e remove `tpl_vendedor` |
+| `20261105_0012_cic_fase1.sql` | trava de venda paga em `hubla_vendas`, funções internas e RPCs da fase 1 (`cic_vendedor_mes`, `cic_meta_mes`, `cic_home`) |
+
+## Camada tratada (RPCs do app)
+
+Regras em `escopo.md` (CIC fase 1). Todas `security definer`, `stable`,
+`search_path = ''`; execute só pra `authenticated`.
+
+| Função | Quem | Devolve |
+|---|---|---|
+| `cic_vendedor_mes(p_mes)` | admin: todos os vendedores ativos; vendedor: só ele; sem perfil: vazio | por vendedor: vendas (qtd, líquido, bruto), reembolsos do mês (qtd, líquido), líquido final, nível/%/comissão e falta pro próximo (`cic_comissao`), contatos em "2. Em Contato", conversão e alvo |
+| `cic_meta_mes(p_mes)` | só admin (senão erro 42501) | jsonb: líquido comercial final, vendas, reembolsos, primeira venda, dias úteis (mês, decorridos, restantes), projeção, `metas[]` (% , falta, falta por dia útil), `serie[]` diária com acumulado |
+| `cic_home(p_inicio, p_fim)` | só admin (senão erro 42501) | jsonb: `serie[]` por dia (qtd, líquido e bruto de comercial e orgânico, reembolsos), `produtos[]`, `conversao` do time |
+
+Internas, sem acesso do app: `cic_vendas_validas`, `cic_reembolsos_validos`,
+`cic_contatos_em_contato` (todas por período `p_inicio, p_fim`).
+
+Trava: `trg_hubla_vendas_trava_paga` ignora qualquer atualização de linha com
+`status = 'paid'`. Overdue/unpaid virando paid continua passando.
 
 ## Tabelas de cadastro
 
