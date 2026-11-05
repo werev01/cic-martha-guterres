@@ -72,6 +72,12 @@ Cada regra na Hubla (Integrações > Automações > Webhook > Configurações) a
 um path e marca só os eventos daquela tabela. Os webhooks da Hubla pro Unnichat
 continuam como estavam; os do n8n são regras adicionais.
 
+Produtos por regra (05/11/2026): Ultra Black 2026 nas 4 regras. Meal Prep Express +
+Regina IA só nas regras de Vendas e Reembolsos (carrinho e recusa do Meal Prep não são
+medidos) e não dispara nada no Unnichat. Produto novo entra marcando na regra da Hubla,
+sem mexer no workflow. Atenção: o mapeamento grava só `products[0]`; se algum produto
+passar a ser vendido como order bump, ajustar antes.
+
 | Workflow | Path | Eventos marcados na Hubla | Tabela |
 |---|---|---|---|
 | `[MARTHA] Hubla · Vendas` | `/webhook/martha-guterres/hubla/vendas` | Pagamento da fatura realizado, Status da fatura atualizada | `hubla_vendas` |

@@ -121,7 +121,9 @@ Regras:
 
 ## Comissão do vendedor (decidido em 04/11/2026)
 
-Base: faturamento LÍQUIDO individual no mês (vendedor = `utm_source`).
+Base: faturamento LÍQUIDO individual no mês (vendedor = `utm_source`). Todos os
+produtos contam igual pra meta e comissão (Ultra Black e Meal Prep, decidido em
+05/11/2026).
 
 | Nível | Faturamento líquido no mês | % |
 |---|---|---|
