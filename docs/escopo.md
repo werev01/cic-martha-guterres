@@ -156,8 +156,6 @@ produtos contam igual pra meta e comissão (Ultra Black e Meal Prep, decidido em
 ### Pendente de teste e validação (n8n e Unnichat, criados às pressas em 04/11)
 - [ ] Token errado nos webhooks: confirmar o status real (doc assume 403) com curl.
 - [x] Blocklist: primeiras execuções reais ok em 05/11 (token validado).
-- [ ] Carrinho (Unnichat): 7 contatos clicaram "Parar mensagens" enquanto o POST do
-  fluxo estava sem header (corrigido em 05/11) e ficaram sem opt-out. Dar opt-out manual.
 - [ ] Custo de mensagens: conferir a view de custo contra a primeira fatura do Unnichat.
 - [ ] Eventos CRM: conferir o primeiro evento real de cada uma das 7 automações
   `[EVENTO]` (header, `Acao` de Ganho e Perdido, campos que chegam).
