@@ -3,7 +3,7 @@
   "name": "[MARTHA] Hubla · Recusadas",
   "description": "Recebe da Hubla o pagamento de fatura que falhou e grava em public.hubla_recusadas (upsert por invoice_id, failed_at).",
   "active": true,
-  "versionId": "aef6b865-ac88-4769-92aa-aa6e80cdafa1",
+  "versionId": "964899da-8d5c-402c-8778-9bdd1ac43bfe",
   "nodes": [
     {
       "name": "Webhook Hubla",
@@ -81,11 +81,51 @@
       }
     },
     {
+      "name": "Tem telefone?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "tel-min",
+              "leftValue": "={{ String($json.payer_telefone ?? '').replace(/\\D/g, '').length }}",
+              "rightValue": 10,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "tel-max",
+              "leftValue": "={{ String($json.payer_telefone ?? '').replace(/\\D/g, '').length }}",
+              "rightValue": 15,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
       "name": "Enviar pro Unnichat",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        448,
+        672,
         200
       ],
       "parameters": {
@@ -124,11 +164,23 @@
             "index": 0
           },
           {
-            "node": "Enviar pro Unnichat",
+            "node": "Tem telefone?",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "Tem telefone?": {
+      "main": [
+        [
+          {
+            "node": "Enviar pro Unnichat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     }
   },

@@ -3,7 +3,7 @@
   "name": "[MARTHA] Hubla · Vendas",
   "description": "Recebe da Hubla fatura paga e mudanças de status e grava em public.hubla_vendas (upsert por invoice_id).",
   "active": true,
-  "versionId": "291b9bba-8fd3-4288-91fa-3c456707510f",
+  "versionId": "274870a6-3a7b-4cf0-b51c-6cf1bdca3ab5",
   "nodes": [
     {
       "name": "Webhook Hubla",
@@ -81,6 +81,46 @@
       }
     },
     {
+      "name": "Tem telefone?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "tel-min",
+              "leftValue": "={{ String($json.payer_telefone ?? '').replace(/\\D/g, '').length }}",
+              "rightValue": 10,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "tel-max",
+              "leftValue": "={{ String($json.payer_telefone ?? '').replace(/\\D/g, '').length }}",
+              "rightValue": 15,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
       "name": "Só venda aprovada",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -116,7 +156,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        672,
+        896,
         200
       ],
       "parameters": {
@@ -162,11 +202,23 @@
         ]
       ]
     },
-    "Só venda aprovada": {
+    "Tem telefone?": {
       "main": [
         [
           {
             "node": "Enviar pro Unnichat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Só venda aprovada": {
+      "main": [
+        [
+          {
+            "node": "Tem telefone?",
             "type": "main",
             "index": 0
           }
