@@ -47,7 +47,9 @@ referência pra montar os workflows. A DDL está em
 | TMB | `tmb_vendas` | webhook | `pedido_id` |
 | TMB | `tmb_reembolsos` | webhook | `pedido_id` |
 | Unnichat | `unnichat_eventos` | webhook | `telefone,acao,etapa_crm,event_ts` |
-| Unnichat | `unnichat_automacoes` | webhook | `contact_id,telefone,codigo_copy,minuto` |
+| Unnichat | `unnichat_automacoes` | webhook (não alimentada) | `contact_id,telefone,codigo_copy,minuto` |
+| Unnichat | `unnichat_automacoes_metricas` | coleta de hora em hora (API) | `automacao_id,node_id,coletado_em` |
+| Unnichat | `unnichat_automacoes_nodes` | coleta de hora em hora (API) | `automacao_id,node_id` |
 | Unnichat | `unnichat_blocklist` | webhook | `telefone` |
 | Unnichat | `unnichat_broadcasts` | coleta agendada (API) | `broadcast_id` |
 | Unnichat | `unnichat_conversas_dia` | coleta diária (API) | `dia,contact_id` |
@@ -278,7 +280,9 @@ contato voltando pra mesma etapa vira uma linha só.
 
 ### `unnichat_automacoes` (webhook `/webhook/martha-guterres/unnichat/automacoes`)
 **Não alimentada por decisão (04/11/2026):** só o comercial reporta (eventos de CRM em
-`unnichat_eventos`). Tabela fica no banco sem workflow.
+`unnichat_eventos`) e o custo de mensagem das automações sai da coleta horária
+(`unnichat_automacoes_metricas` + `unnichat_automacoes_nodes`), não de webhook por
+mensagem. Tabela fica no banco sem workflow.
 
 | Coluna | Tipo | Nota |
 |---|---|---|
@@ -288,6 +292,76 @@ contato voltando pra mesma etapa vira uma linha só.
 | `fluxo`, `funil`, `tipo`, `msg` | text | |
 | `cadencia`, `disparo`, `envios` | int | partes do código de copy |
 | `raw_payload` | jsonb | **obr.** |
+
+### Custo de mensagens das automações (coleta de hora em hora)
+
+Workflow `[MARTHA] Unnichat · Coleta de automações` (minuto 5 de cada hora). Config no
+nó "Config": conexão `Martha Guterres 0209`, pasta raiz `[COMERCIAL]` (entra ela e
+todas as subpastas: hoje GERAL, BANCO DE EVENTOS, CHECKOUT; a "Comercial" dentro de
+"Black Friday 2026" não entra), base `https://unnichat.com.br/api`, intervalo 7 s.
+
+API (credencial `[MARTHA] Unnichat`, header `Authorization: Bearer <token>`). Toda
+resposta vem como `{ success, data, metadata, links }`; a paginação segue `links.next`.
+Limite informado nos headers: 10/s e 300/min; o espaçamento de 7 s segue a orientação
+de `/metrics` ser consulta pesada.
+
+| Chamada | Uso |
+|---|---|
+| `GET /automation-folders` | acha a pasta raiz pelo nome e as descendentes (`parentId`) |
+| `GET /automations` | filtra as automações dessas pastas (`folderId`) |
+| `GET /meta/templates` | nome -> categoria (MARKETING, UTILITY, AUTHENTICATION) |
+| `GET /automations/{id}/metrics` | contadores acumulados por node |
+| `GET /automations/{id}` | o nome do template fica no `text` do node de envio de template |
+
+#### `unnichat_automacoes_metricas` (bruta)
+Foto horária das métricas, uma linha por automação x node x hora. Métricas são
+**acumuladas desde a criação**: a view tira a diferença entre fotos, e a primeira foto
+de cada node é base (não consumo daquela hora).
+
+| Coluna | Origem |
+|---|---|
+| `coletado_em` | **obr.** início da hora da coleta em America/Sao_Paulo |
+| `automacao_id` | **obr.** |
+| `node_id` | **obr.** `nodeId`; `_total` = `totals.messages` da automação |
+| `automacao_nome`, `pasta`, `automacao_ativa` | da listagem |
+| `node_tipo`, `message_type` | `type`, `messageType` do node (`_total` no total) |
+| `conexao` | rótulo da config |
+| `enviados`, `entregues`, `lidos`, `falhas` | `messages.sent/delivered/read/failed` |
+| `raw_payload` | **obr.** o node; na linha `_total`, a resposta inteira |
+
+Só entram nodes com bloco `messages` (nodes de mensagem).
+
+#### `unnichat_automacoes_nodes` (bruta, estado atual)
+Dimensão regravada a cada coleta. Liga cada node de mensagem ao template e à categoria
+de cobrança da Meta.
+
+| Coluna | Origem |
+|---|---|
+| `automacao_id`, `node_id` | **obr.** chave |
+| `automacao_nome`, `pasta`, `node_tipo`, `message_type` | métricas |
+| `template_nome` | `text` do node no detalhe (só `send_template`) |
+| `template_categoria` | categoria do template em `/meta/templates` |
+| `categoria_cobranca` | `template_categoria` em node de template; `SERVICE` nos demais |
+| `raw_payload` | **obr.** `{ metricas: node, detalhe: node }` |
+| `visto_em` | **obr.** última coleta que viu o node |
+
+Se trocarem o template de um node, o histórico desse node passa a ser lido com o
+template novo (raro; tratar com vigência se acontecer).
+
+#### Regra de custo (decidida em 05/11/2026)
+- Preço por mensagem **entregue**, por categoria, em `whatsapp_preco` (config com
+  vigência; mudou o preço = nova linha). Valores de 01/10/2026: marketing R$ 0,3217;
+  utilidade, autenticação e serviço R$ 0,035 (utilidade é cobrada mesmo com a janela de
+  24h aberta).
+- **Serviço** = mensagem que não é template (texto, botão, mídia) enviada pela empresa.
+  Fontes, uma por tipo (sem somar duas vezes): bot = esta coleta; vendedores =
+  `unnichat_conversas_dia` (`msg_vendedor`, `msg_agendada`); broadcast = `srv_*` de
+  `unnichat_broadcasts`. As contagens de automação em `conversas_dia` só servem pra
+  conferência.
+- **Franquia de serviço:** 1.000 grátis por número por mês. Não é rateada por automação:
+  todo serviço é custeado a R$ 0,035 e a franquia entra como desconto do mês no total
+  do número (teto R$ 35/mês).
+- Conferir contra a primeira fatura do Unnichat.
 
 ### `unnichat_blocklist` (webhook `/webhook/martha-guterres/unnichat/blocklist`)
 Contato que pediu pra não receber mais mensagens. Chamado por um passo de requisição
@@ -336,8 +410,9 @@ quando outro envio chega com body mais pobre. `email` e `profilePicUrl` são ign
 ### `unnichat_broadcasts` (coleta agendada, de hora em hora)
 `broadcast_id` **obr.**, `nome`, `status`, `contatos`, `send_at`, `started_at`,
 `finished_at`, contadores `tpl_enviados/entregues/lidos/falhas` e
-`srv_enviados/entregues/lidos/falhas` (int), `raw_payload` **obr.** Cada coleta
-regrava o broadcast inteiro (os contadores sobem até o fim).
+`srv_enviados/entregues/lidos/falhas` (int), `template_id` (template usado; a categoria
+de cobrança sai dele), `raw_payload` **obr.** Cada coleta regrava o broadcast inteiro
+(os contadores sobem até o fim).
 
 ### `unnichat_conversas_dia` (coleta diária, 23h40)
 `dia` **obr.**, `contact_id` **obr.**, `telefone`, `vendedor`, contadores

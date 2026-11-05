@@ -1,0 +1,633 @@
+{
+  "id": "YUIxYEo01WNd5yXB",
+  "name": "[MARTHA] Unnichat · Coleta de automações",
+  "description": "De hora em hora: foto das métricas por node das automações da pasta [COMERCIAL] (0209) + template e categoria de cobrança de cada node. Grava em unnichat_automacoes_metricas e unnichat_automacoes_nodes.",
+  "active": false,
+  "versionId": "95866a84-4604-47c5-828d-3fdfa33e4deb",
+  "nodes": [
+    {
+      "id": "2d13dfdc-d933-47bd-ab5f-40d40287bea4",
+      "name": "De hora em hora",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        192
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1,
+              "triggerAtMinute": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "606f97d9-a198-483e-9e06-b274cd2e8dd1",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        192
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "conexao",
+              "value": "Martha Guterres 0209",
+              "type": "string"
+            },
+            {
+              "id": "c2",
+              "name": "pasta_raiz",
+              "value": "[COMERCIAL]",
+              "type": "string"
+            },
+            {
+              "id": "c3",
+              "name": "base_url",
+              "value": "https://unnichat.com.br/api",
+              "type": "string"
+            },
+            {
+              "id": "c4",
+              "name": "intervalo_s",
+              "value": 7,
+              "type": "number"
+            },
+            {
+              "id": "c5",
+              "name": "fuso",
+              "value": "America/Sao_Paulo",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bad872e4-5298-4f9d-8d89-f07da049d207",
+      "name": "Listar pastas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        192
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.base_url }}/automation-folders",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "perPage",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "completeExpression": "={{ !$response.body || !$response.body.links || !$response.body.links.next }}",
+              "limitPagesFetched": true,
+              "maxRequests": 10,
+              "nextURL": "={{ $('Config').first().json.base_url.replace(/\\/api$/, '') + $response.body.links.next }}",
+              "paginationCompleteWhen": "other",
+              "paginationMode": "responseContainsNextURL",
+              "requestInterval": 7000
+            }
+          }
+        }
+      },
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DLPlheJ00sK7zJND",
+          "name": "[MARTHA] Unnichat"
+        }
+      }
+    },
+    {
+      "id": "9240b487-2b77-428e-85be-871d94c44fc8",
+      "name": "Espera 1",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        192
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $('Config').first().json.intervalo_s }}",
+        "unit": "seconds"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "79561830-e2aa-4f05-a4ba-eb790f818a8d",
+      "name": "Listar automações",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        896,
+        192
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.base_url }}/automations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "perPage",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "completeExpression": "={{ !$response.body || !$response.body.links || !$response.body.links.next }}",
+              "limitPagesFetched": true,
+              "maxRequests": 20,
+              "nextURL": "={{ $('Config').first().json.base_url.replace(/\\/api$/, '') + $response.body.links.next }}",
+              "paginationCompleteWhen": "other",
+              "paginationMode": "responseContainsNextURL",
+              "requestInterval": 7000
+            }
+          }
+        }
+      },
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DLPlheJ00sK7zJND",
+          "name": "[MARTHA] Unnichat"
+        }
+      }
+    },
+    {
+      "id": "39152225-24ba-4530-8723-5fa7489fa130",
+      "name": "Espera 2",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        192
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $('Config').first().json.intervalo_s }}",
+        "unit": "seconds"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "288b28b3-7b85-45d4-89a9-e8a13bb62241",
+      "name": "Listar templates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1344,
+        192
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.base_url }}/meta/templates",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "perPage",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "completeExpression": "={{ !$response.body || !$response.body.links || !$response.body.links.next }}",
+              "limitPagesFetched": true,
+              "maxRequests": 20,
+              "nextURL": "={{ $('Config').first().json.base_url.replace(/\\/api$/, '') + $response.body.links.next }}",
+              "paginationCompleteWhen": "other",
+              "paginationMode": "responseContainsNextURL",
+              "requestInterval": 7000
+            }
+          }
+        }
+      },
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DLPlheJ00sK7zJND",
+          "name": "[MARTHA] Unnichat"
+        }
+      }
+    },
+    {
+      "id": "c1a0ca5b-15eb-4add-880a-5c21446f655d",
+      "name": "Selecionar automações",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        192
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Acha a pasta raiz (config) e todas as descendentes; mantém só as automações dessas pastas.\n// A API REST responde { success, data: [...], metadata, links }.\nconst cfg = $('Config').first().json;\nconst lista = (b) => Array.isArray(b) ? b : (b?.data ?? b?.items ?? b?.folders ?? b?.automations ?? []);\nconst pastas = $('Listar pastas').all().flatMap(i => lista(i.json));\nconst raizes = pastas.filter(p => p.name === cfg.pasta_raiz && !p.parentId);\nif (raizes.length !== 1) throw new Error('Coleta de automações: pasta raiz \"' + cfg.pasta_raiz + '\" encontrada ' + raizes.length + ' vezes (esperado 1). Pastas lidas: ' + pastas.length);\nconst nomePasta = {};\nconst dentro = new Set([raizes[0].id]);\nnomePasta[raizes[0].id] = raizes[0].name;\nlet mudou = true;\nwhile (mudou) {\n  mudou = false;\n  for (const p of pastas) if (p.parentId && dentro.has(p.parentId) && !dentro.has(p.id)) { dentro.add(p.id); nomePasta[p.id] = p.name; mudou = true; }\n}\nconst autos = $('Listar automações').all().flatMap(i => lista(i.json)).filter(a => dentro.has(a.folderId));\nif (!autos.length) throw new Error('Coleta de automações: nenhuma automação nas pastas de ' + cfg.pasta_raiz);\nreturn autos.map(a => ({ json: {\n  automacao_id: a.id,\n  automacao_nome: a.name ?? null,\n  pasta: nomePasta[a.folderId] ?? null,\n  automacao_ativa: typeof a.active === 'boolean' ? a.active : null\n} }));"
+      }
+    },
+    {
+      "id": "6bc1af50-0f12-405e-bf41-11f0b726c9f8",
+      "name": "Loop automações",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1792,
+        192
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "00b3f9a1-da0e-4bb6-9c97-9e8de15051b7",
+      "name": "Lotes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Separa as linhas por tabela e monta lotes de até 500 pro upsert no PostgREST.\nconst base = 'https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/';\nconst destinos = {\n  m: base + 'unnichat_automacoes_metricas?on_conflict=automacao_id,node_id,coletado_em',\n  n: base + 'unnichat_automacoes_nodes?on_conflict=automacao_id,node_id'\n};\nconst grupos = { m: [], n: [] };\nfor (const i of $input.all()) { const { _tabela, ...row } = i.json; if (grupos[_tabela]) grupos[_tabela].push(row); }\nconst out = [];\nfor (const k of Object.keys(grupos)) for (let x = 0; x < grupos[k].length; x += 500) out.push({ json: { url: destinos[k], linhas: grupos[k].length, body: grupos[k].slice(x, x + 500) } });\nreturn out;"
+      }
+    },
+    {
+      "id": "4efac4c8-9672-483e-9c34-60a1ee2eb194",
+      "name": "Gravar no Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "supabaseApi": {
+          "id": "lE0HnMSq3MSGveqV",
+          "name": "[MARTHA] Supabase service role"
+        }
+      }
+    },
+    {
+      "id": "7dfa8d35-186c-4eda-bf5f-9ebad76915e5",
+      "name": "Espera métricas",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2016,
+        192
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $('Config').first().json.intervalo_s }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "52b6e96b-0d9e-48d8-9de3-affaf2b1ad66",
+      "name": "Métricas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2240,
+        192
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.base_url }}/automations/{{ $('Loop automações').first().json.automacao_id }}/metrics",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DLPlheJ00sK7zJND",
+          "name": "[MARTHA] Unnichat"
+        }
+      }
+    },
+    {
+      "id": "ae69dae7-cb60-4433-9170-b06c2e3f3677",
+      "name": "Espera detalhe",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2464,
+        192
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $('Config').first().json.intervalo_s }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "1633bd7a-773c-48d4-9833-92ef23abfdf0",
+      "name": "Detalhe",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2688,
+        192
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.base_url }}/automations/{{ $('Loop automações').first().json.automacao_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DLPlheJ00sK7zJND",
+          "name": "[MARTHA] Unnichat"
+        }
+      }
+    },
+    {
+      "id": "4672ce7a-bde5-437b-82fb-52e0ac2bccdc",
+      "name": "Linhas da automação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2912,
+        272
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Monta as linhas de métricas (foto da hora) e de nodes (dimensão) de UMA automação.\n// Contrato: docs/contrato-dados.md (unnichat_automacoes_metricas / unnichat_automacoes_nodes).\n// A API REST responde { success, data: {...} }.\nconst cfg = $('Config').first().json;\nconst a = $('Loop automações').first().json;\nconst mResp = $('Métricas').first().json;\nconst m = mResp?.data ?? mResp?.metrics ?? mResp ?? {};\nconst dResp = $('Detalhe').first().json;\nconst det = dResp?.data ?? dResp?.automation ?? dResp ?? {};\nconst coletadoEm = DateTime.now().setZone(cfg.fuso).startOf('hour').toISO();\nconst agora = DateTime.now().toISO();\nconst int = (v) => { const n = Number(v); return v === null || v === undefined || v === '' || !Number.isFinite(n) ? null : Math.round(n); };\n\n// templates: nome -> categoria (MARKETING / UTILITY / AUTHENTICATION)\nconst lista = (b) => Array.isArray(b) ? b : (b?.data ?? b?.items ?? b?.templates ?? []);\nconst cat = {};\nfor (const t of $('Listar templates').all().flatMap(i => lista(i.json))) if (t?.name) cat[String(t.name).trim().toLowerCase()] = t.category ?? null;\n\n// nodes do detalhe, por id (o nome do template fica no text do node)\nconst detNodes = det.nodes ?? [];\nconst porId = {};\nfor (const n of (Array.isArray(detNodes) ? detNodes : [])) { const id = n?.id ?? n?.nodeId; if (id) porId[id] = n; }\nconst nomeTemplate = (n) => {\n  if (!n) return null;\n  for (const v of [n.text, n.data?.template?.name, n.data?.templateName, n.template?.name, n.templateName]) {\n    if (typeof v === 'string' && v.trim()) return v.trim();\n  }\n  return null;\n};\n\nconst base = { automacao_id: a.automacao_id, automacao_nome: m.name ?? a.automacao_nome, pasta: a.pasta };\nconst out = [];\nconst tot = m.totals?.messages ?? {};\nout.push({ _tabela: 'm', coletado_em: coletadoEm, ...base, node_id: '_total', automacao_ativa: a.automacao_ativa,\n  node_tipo: '_total', message_type: null, conexao: cfg.conexao,\n  enviados: int(tot.sent), entregues: int(tot.delivered), lidos: int(tot.read), falhas: int(tot.failed), raw_payload: mResp });\n\nfor (const n of (m.nodes ?? [])) {\n  if (!n?.messages) continue;\n  const mt = n.messageType ?? null;\n  out.push({ _tabela: 'm', coletado_em: coletadoEm, ...base, node_id: n.nodeId, automacao_ativa: a.automacao_ativa,\n    node_tipo: n.type ?? null, message_type: mt, conexao: cfg.conexao,\n    enviados: int(n.messages.sent), entregues: int(n.messages.delivered), lidos: int(n.messages.read), falhas: int(n.messages.failed), raw_payload: n });\n  const ehTemplate = mt === 'send_template';\n  const tNome = ehTemplate ? nomeTemplate(porId[n.nodeId]) : null;\n  const tCat = tNome ? (cat[tNome.toLowerCase()] ?? null) : null;\n  out.push({ _tabela: 'n', ...base, node_id: n.nodeId, node_tipo: n.type ?? null, message_type: mt,\n    template_nome: tNome, template_categoria: tCat, categoria_cobranca: ehTemplate ? tCat : 'SERVICE',\n    raw_payload: { metricas: n, detalhe: porId[n.nodeId] ?? null }, visto_em: agora });\n}\nreturn out.map(j => ({ json: j }));"
+      }
+    }
+  ],
+  "connections": {
+    "De hora em hora": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Listar pastas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar pastas": {
+      "main": [
+        [
+          {
+            "node": "Espera 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espera 1": {
+      "main": [
+        [
+          {
+            "node": "Listar automações",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar automações": {
+      "main": [
+        [
+          {
+            "node": "Espera 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espera 2": {
+      "main": [
+        [
+          {
+            "node": "Listar templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar templates": {
+      "main": [
+        [
+          {
+            "node": "Selecionar automações",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Selecionar automações": {
+      "main": [
+        [
+          {
+            "node": "Loop automações",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop automações": {
+      "main": [
+        [
+          {
+            "node": "Lotes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Espera métricas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lotes": {
+      "main": [
+        [
+          {
+            "node": "Gravar no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espera métricas": {
+      "main": [
+        [
+          {
+            "node": "Métricas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Métricas": {
+      "main": [
+        [
+          {
+            "node": "Espera detalhe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espera detalhe": {
+      "main": [
+        [
+          {
+            "node": "Detalhe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detalhe": {
+      "main": [
+        [
+          {
+            "node": "Linhas da automação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Linhas da automação": {
+      "main": [
+        [
+          {
+            "node": "Loop automações",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lzBoaNrbFp4FALjY",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all"
+  },
+  "tags": [
+    {
+      "name": "martha"
+    },
+    {
+      "name": "fonte:unnichat"
+    },
+    {
+      "name": "tipo:agendado"
+    }
+  ],
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

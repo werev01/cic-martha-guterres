@@ -3,13 +3,13 @@
 Mapa do que existe no Supabase (`zrvrfxhzwzumvetgjure`) e como mexer no dia a dia.
 Toda mudança de estrutura vira migration em `supabase/migrations/`.
 
-Última atualização: 04/11/2026
+Última atualização: 05/11/2026
 
 ## Camadas
 
 | Camada | O que é | Quem lê |
 |---|---|---|
-| Bruta | 19 tabelas alimentadas pelo n8n (`hubla_*`, `tmb_*`, `unnichat_*`, `callix_*`). Contrato em `contrato-dados.md` | ninguém do app (RLS sem policy, sem grant) |
+| Bruta | 21 tabelas alimentadas pelo n8n (`hubla_*`, `tmb_*`, `unnichat_*`, `callix_*`). Contrato em `contrato-dados.md` | ninguém do app (RLS sem policy, sem grant) |
 | Cadastro | config, vendedores, perfis, menus, etapas, motivos, metas, calendário | app, via RLS |
 | Tratada | views que o app consome (ainda não criadas: entram com os primeiros payloads) | app, via RLS |
 | `tmp_claude` | views de trabalho/diagnóstico, validade de 12h | só ferramentas |
@@ -25,6 +25,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261104_0005_comissao.sql` | régua de comissão (`comissao_faixas`, `cic_comissao()`) |
 | `20261104_0006_links_venda_utm.sql` | UTM com sublinhado, `cic_vendedor_de_utm()`, `links_venda`, `cic_meus_links()` |
 | `20261104_0007_ajustes_primeiros_eventos.sql` | guarda contra evento Hubla fora de ordem, `negocio_id`/`etapa_desde` no CRM, correção dos primeiros eventos |
+| `20261105_0008_unnichat_coletas.sql` | brutas `unnichat_automacoes_metricas` (foto horária) e `unnichat_automacoes_nodes` (template e categoria de cobrança), `template_id` em `unnichat_broadcasts`, config `whatsapp_preco` com os preços da Meta de 01/10/2026 |
 
 ## Tabelas de cadastro
 
@@ -38,6 +39,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `crm_etapas` | `ordem` | 0 a 4, com o nome exato do Unnichat |
 | `motivos_perda` | `nome_unnichat` | 11 motivos, grupo = código entre colchetes |
 | `metas` | `mes, nivel` | nov/2026: bronze 100k, prata 150k, ouro 200k |
+| `whatsapp_preco` | `categoria, vigente_desde` | preço Meta por mensagem entregue desde 01/10/2026: MARKETING 0,3217; UTILITY, AUTHENTICATION e SERVICE 0,035 (SERVICE com 1.000 grátis por número/mês). Sem acesso do app; leitura via view |
 | `comissao_faixas` | `vigencia_inicio, nivel` | nov/2026: nível 1 (> 0) 1%, nível 2 (> 45 mil) 1,5%, nível 3 (> 70 mil) 2%; regra `sobre_total` em `cic_config` |
 | `dim_calendario` | `data` | nov e dez/2026; dia útil = seg a sex sem feriado nacional (19 em novembro) |
 
