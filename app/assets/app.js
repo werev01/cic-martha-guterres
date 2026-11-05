@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-04c';
-  var MUDANCAS = 'Minha página: links de venda por vendedor com botão de copiar';
+  var BUILD = '2026-11-05a';
+  var MUDANCAS = 'Home (só comercial), Meta do mês e Minha página com os números do mês (RPCs da fase 1); admin escolhe o vendedor na Minha página';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -215,27 +215,284 @@
     $('tela-titulo').textContent = t.rotulo;
     $('tela-desc').textContent = t.desc;
     icone($('tela-icone'), m);
-    $('bloco-links').hidden = m !== 'minhapagina';
-    if (m === 'minhapagina') carregarLinks();
+    $('bloco-links').hidden = true;
+    var render = RENDER[m];
+    $('painel').hidden = !render;
+    $('painel-vazio').hidden = !!render;
+    if (render) render($('painel'), ++pedido);
     Array.prototype.forEach.call(document.querySelectorAll('.menu a'), function (a) {
       a.classList.toggle('ativo', a.dataset.menu === m);
     });
     fecharGaveta();
   }
 
+  // ---------- formatação e gráficos ----------
+  var FUSO = 'America/Sao_Paulo';
+  var MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  var BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  var pedido = 0;   // descarta resposta de tela que já foi trocada
+
+  function hojeSP() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  }
+  function mesAtual() { return hojeSP().slice(0, 8) + '01'; }
+  function nomeMes(d) { return MESES[Number(d.slice(5, 7)) - 1] + ' de ' + d.slice(0, 4); }
+  function rs(v) { return BRL.format(Number(v) || 0); }
+  function rsCurto(v) {
+    v = Number(v) || 0;
+    if (Math.abs(v) >= 1000) return 'R$ ' + (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: v >= 10000 ? 0 : 1 }) + ' mil';
+    return 'R$ ' + Math.round(v).toLocaleString('pt-BR');
+  }
+  function pct(v, casas) {
+    if (v === null || v === undefined) return '–';
+    return (Number(v) * 100).toLocaleString('pt-BR', { minimumFractionDigits: casas == null ? 1 : casas, maximumFractionDigits: casas == null ? 1 : casas }) + '%';
+  }
+  function num(v) { return (Number(v) || 0).toLocaleString('pt-BR'); }
+  function ddmm(d) { return d.slice(8, 10) + '/' + d.slice(5, 7); }
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function kpi(rotulo, valor, sub, destaque) {
+    return '<div class="kpi' + (destaque ? ' kpi-destaque' : '') + '"><div class="kpi-rotulo">' + esc(rotulo) + '</div>' +
+      '<div class="kpi-valor">' + valor + '</div>' + (sub ? '<div class="kpi-sub">' + sub + '</div>' : '') + '</div>';
+  }
+  function bloco(titulo, sub, corpo) {
+    return '<section class="bloco"><header class="bloco-topo"><h2>' + esc(titulo) + '</h2>' +
+      (sub ? '<p>' + sub + '</p>' : '') + '</header>' + corpo + '</section>';
+  }
+  function carregando(alvo) { alvo.innerHTML = '<p class="painel-msg">Carregando...</p>'; }
+  function falhou(alvo, e) {
+    alvo.innerHTML = '<p class="painel-msg painel-erro"></p>';
+    alvo.firstChild.textContent = traduzErro(e);
+  }
+  // Conversão contra o alvo (só tons da paleta)
+  function convTag(taxa, alvo) {
+    if (taxa === null || taxa === undefined) return '<span class="tag">sem contatos</span>';
+    return '<span class="tag ' + (Number(taxa) >= Number(alvo) ? 'tag-ok' : 'tag-abaixo') + '">alvo ' + pct(alvo, 0) + '</span>';
+  }
+
+  // Barras diárias (empilhadas). series: [{chave, nome, cor}]
+  function grafBarras(dados, series, opc) {
+    opc = opc || {};
+    var n = dados.length;
+    if (!n) return '<p class="painel-msg">Sem dados no período.</p>';
+    // largura real do bloco: texto do eixo fica legível no celular
+    var W = Math.max(300, Math.min(760, Math.round(opc.largura || 760))), H = W < 500 ? 200 : 220, mE = 74, mB = 26, mT = 10;
+    var larg = (W - mE - 8) / n, barra = Math.max(4, Math.min(28, larg * 0.62));
+    var totais = dados.map(function (d) { return series.reduce(function (s, x) { return s + (Number(d[x.chave]) || 0); }, 0); });
+    var max = Math.max.apply(null, totais.concat([1]));
+    // escala "redonda": 4 faixas de 1, 2, 2,5, 3, 4, 5, 6 ou 8 x 10^n
+    var bruto = max / 4, ordem = Math.pow(10, Math.floor(Math.log10(bruto)));
+    var passo = [1, 2, 2.5, 3, 4, 5, 6, 8, 10].map(function (k) { return k * ordem; }).filter(function (k) { return k >= bruto; })[0];
+    var topo = passo * 4;
+    var y = function (v) { return mT + (H - mT - mB) * (1 - v / topo); };
+    var svg = '<svg class="grafico" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opc.rotulo || 'Gráfico diário') + '">';
+    for (var g = 0; g <= 4; g++) {
+      var vg = passo * g, yg = y(vg);
+      svg += '<line x1="' + mE + '" x2="' + W + '" y1="' + yg + '" y2="' + yg + '" class="g-grade"/>' +
+        '<text x="' + (mE - 8) + '" y="' + (yg + 4) + '" class="g-eixo" text-anchor="end">' + esc(rsCurto(vg)) + '</text>';
+    }
+    var cadaRotulo = Math.max(1, Math.ceil(n / Math.floor((W - mE) / 26)));
+    dados.forEach(function (d, i) {
+      var x = mE + larg * i + (larg - barra) / 2, base = 0;
+      var dica = ddmm(d.dia) + ': ' + series.map(function (s) { return s.nome + ' ' + rs(d[s.chave]); }).join(' · ');
+      svg += '<g><title>' + esc(dica) + '</title>';
+      series.forEach(function (s) {
+        var v = Number(d[s.chave]) || 0;
+        if (v > 0) {
+          svg += '<rect x="' + x.toFixed(1) + '" y="' + y(base + v).toFixed(1) + '" width="' + barra.toFixed(1) + '" height="' +
+            (y(base) - y(base + v)).toFixed(1) + '" fill="' + s.cor + '"/>';
+          base += v;
+        }
+      });
+      svg += '<rect x="' + (mE + larg * i).toFixed(1) + '" y="' + mT + '" width="' + larg.toFixed(1) + '" height="' + (H - mT - mB) + '" fill="transparent"/></g>';
+      if (i % cadaRotulo === 0) {
+        svg += '<text x="' + (mE + larg * i + larg / 2).toFixed(1) + '" y="' + (H - 8) + '" class="g-eixo" text-anchor="middle">' + ddmm(d.dia).slice(0, 2) + '</text>';
+      }
+    });
+    svg += '</svg>';
+    var leg = series.length > 1 ? '<div class="legenda">' + series.map(function (s) {
+      return '<span><i style="background:' + s.cor + '"></i>' + esc(s.nome) + '</span>';
+    }).join('') + '</div>' : '';
+    return leg + svg;
+  }
+
+  // Régua horizontal com marcos (níveis de comissão ou metas)
+  // marcos: [{valor, rotulo, sub}]; atual: valor preenchido; proj: marcador opcional
+  function regua(marcos, atual, opc) {
+    opc = opc || {};
+    var fim = opc.fim || Math.max.apply(null, marcos.map(function (m) { return m.valor; }).concat([atual, opc.proj || 0, 1]));
+    var p = function (v) { return Math.max(0, Math.min(100, v / fim * 100)); };
+    var h = '<div class="regua"><div class="regua-trilho"><div class="regua-feito" style="width:' + p(atual).toFixed(2) + '%"></div>';
+    if (opc.proj) h += '<div class="regua-proj" style="left:' + p(opc.proj).toFixed(2) + '%" title="Projeção ' + esc(rs(opc.proj)) + '"></div>';
+    marcos.forEach(function (m) {
+      if (m.valor > 0) h += '<div class="regua-marco' + (atual >= m.valor ? ' batido' : '') + '" style="left:' + p(m.valor).toFixed(2) + '%"></div>';
+    });
+    h += '</div><div class="regua-rotulos">';
+    marcos.forEach(function (m) {
+      h += '<div class="regua-rotulo' + (atual >= m.valor && m.valor > 0 ? ' batido' : '') + (m.atual ? ' atual' : '') + '" style="left:' + p(m.valor).toFixed(2) + '%">' +
+        '<strong>' + esc(m.rotulo) + '</strong><span>' + esc(m.sub || '') + '</span></div>';
+    });
+    return h + '</div></div>';
+  }
+
+  function tabela(cab, linhas, num) {
+    num = num || [];
+    return '<div class="tabela-rolagem"><table class="tabela"><thead><tr>' + cab.map(function (c, i) {
+      return '<th' + (num.indexOf(i) >= 0 ? ' class="n"' : '') + '>' + esc(c) + '</th>';
+    }).join('') + '</tr></thead><tbody>' + linhas.map(function (l) {
+      return '<tr>' + l.map(function (c, i) { return '<td' + (num.indexOf(i) >= 0 ? ' class="n"' : '') + '>' + c + '</td>'; }).join('') + '</tr>';
+    }).join('') + '</tbody></table></div>';
+  }
+
+  var COR = { comercial: '#1f2b38' };
+
+  // ---------- Home (admin) ----------
+  function telaHome(alvo, id) {
+    carregando(alvo);
+    var ini = mesAtual(), hoje = hojeSP();
+    sb.rpc('cic_home', { p_inicio: ini, p_fim: hoje }).then(function (r) {
+      if (id !== pedido) return;
+      if (r.error) return falhou(alvo, r.error);
+      var d = r.data, s = d.serie || [];
+      var soma = function (lista, k) { return lista.reduce(function (a, x) { return a + (Number(x[k]) || 0); }, 0); };
+      var dia = s.filter(function (x) { return x.dia === hoje; });
+      var c = d.conversao || {};
+      var card = function (titulo, lista, extra) {
+        var vl = soma(lista, 'liquido'), rl = soma(lista, 'reembolsos');
+        var vq = soma(lista, 'vendas_qtd'), rq = soma(lista, 'reembolsos_qtd');
+        return '<div class="kpi-grupo"><h3>' + esc(titulo) + '</h3><div class="kpis">' +
+          kpi('Líquido do comercial', rs(vl - rl), 'bruto ' + rs(soma(lista, 'bruto')), true) +
+          kpi('Vendas', num(vq), rs(vl) + ' em vendas') +
+          kpi('Reembolsos', num(rq), rq ? rs(rl) + ' abatidos' : 'nenhum') + (extra || '') + '</div></div>';
+      };
+      var prod = (d.produtos || []).map(function (p) {
+        return [esc(p.produto), num(p.vendas_qtd), rs(p.bruto), '<strong>' + rs(p.liquido) + '</strong>'];
+      });
+      alvo.innerHTML =
+        card('Hoje · ' + ddmm(hoje), dia) +
+        card('Mês · ' + nomeMes(ini), s, kpi('Conversão do time', pct(c.taxa),
+          num(c.vendas_comercial) + ' vendas · ' + num(c.contatos) + ' contatos em "2. Em Contato" ' + convTag(c.taxa, c.alvo))) +
+        bloco('Vendas por dia', 'Líquido das vendas do comercial, por dia da venda.',
+          grafBarras(s, [{ chave: 'liquido', nome: 'Comercial', cor: COR.comercial }], { largura: alvo.clientWidth - 50 })) +
+        bloco('Por produto', 'Vendas do comercial no mês até hoje.', prod.length
+          ? tabela(['Produto', 'Vendas', 'Bruto', 'Líquido'], prod, [1, 2, 3])
+          : '<p class="painel-msg">Sem vendas no período.</p>');
+    });
+  }
+
+  // ---------- Meta do mês (admin) ----------
+  function telaMeta(alvo, id) {
+    carregando(alvo);
+    var mes = mesAtual();
+    Promise.all([sb.rpc('cic_meta_mes', { p_mes: mes }), sb.rpc('cic_vendedor_mes', { p_mes: mes })]).then(function (rr) {
+      if (id !== pedido) return;
+      var e = rr[0].error || rr[1].error;
+      if (e) return falhou(alvo, e);
+      var d = rr[0].data, vend = rr[1].data || [];
+      var metas = d.metas || [];
+      var liq = Number(d.liquido) || 0;
+      var prox = metas.filter(function (m) { return liq < Number(m.valor); })[0];
+      var topo = metas.length ? Number(metas[metas.length - 1].valor) : 0;
+      var marcos = metas.map(function (m) {
+        return { valor: Number(m.valor), rotulo: m.nivel.charAt(0).toUpperCase() + m.nivel.slice(1), sub: rsCurto(m.valor) };
+      });
+      var linhasMeta = metas.map(function (m) {
+        return ['<strong>' + esc(m.nivel.charAt(0).toUpperCase() + m.nivel.slice(1)) + '</strong>', rs(m.valor), pct(m.pct),
+          Number(m.falta) > 0 ? rs(m.falta) : '<span class="tag tag-ok">batida</span>',
+          Number(m.falta) > 0 ? (m.falta_dia_util == null ? '–' : rs(m.falta_dia_util)) : '–'];
+      });
+      var ranking = vend.map(function (v, i) {
+        return [String(i + 1), esc(v.vendedor_nome), num(v.vendas_qtd), '<strong>' + rs(v.liquido_final) + '</strong>',
+          esc(v.nivel_nome || '–'), rs(v.comissao), pct(v.conversao)];
+      });
+      alvo.innerHTML =
+        '<p class="periodo">' + esc(nomeMes(mes)) + ' · vendas do comercial, líquido de reembolsos</p>' +
+        '<div class="kpis">' +
+        kpi('Líquido comercial', rs(liq), num(d.vendas_qtd) + ' vendas' + (Number(d.reembolsos_qtd) ? ' · ' + num(d.reembolsos_qtd) + ' reembolsos (' + rs(d.reembolsos_liquido) + ')' : ''), true) +
+        kpi('Projeção do mês', d.projecao == null ? '–' : rs(d.projecao), 'ritmo de ' + num(d.dias_uteis_decorridos) + ' dias úteis desde ' + (d.primeira_venda ? ddmm(d.primeira_venda) : '–')) +
+        kpi(prox ? 'Falta pro ' + prox.nivel : 'Metas', prox ? rs(prox.falta) : 'todas batidas', prox && prox.falta_dia_util != null ? rs(prox.falta_dia_util) + ' por dia útil' : '') +
+        kpi('Dias úteis restantes', num(d.dias_uteis_restantes), 'de ' + num(d.dias_uteis_mes) + ' no mês') +
+        '</div>' +
+        bloco('Caminho até o ouro', 'Linha tracejada: projeção do mês no ritmo atual.',
+          regua(marcos, liq, { fim: Math.max(topo, d.projecao || 0) * 1.04, proj: d.projecao }) +
+          tabela(['Meta', 'Valor', 'Atingido', 'Falta', 'Por dia útil'], linhasMeta, [1, 2, 3, 4])) +
+        bloco('Por dia', 'Líquido do comercial por dia da venda.',
+          grafBarras(d.serie || [], [{ chave: 'liquido', nome: 'Comercial', cor: COR.comercial }], { largura: alvo.clientWidth - 50 })) +
+        bloco('Ranking dos vendedores', '', ranking.length
+          ? tabela(['#', 'Vendedor', 'Vendas', 'Líquido', 'Nível', 'Comissão', 'Conversão'], ranking, [0, 2, 3, 5, 6])
+          : '<p class="painel-msg">Nenhum vendedor ativo.</p>');
+    });
+  }
+
+  // ---------- Minha página (vendedor e admin) ----------
+  function telaMinha(alvo, id) {
+    carregando(alvo);
+    var mes = mesAtual();
+    Promise.all([
+      sb.rpc('cic_vendedor_mes', { p_mes: mes }),
+      sb.from('comissao_faixas').select('vigencia_inicio,nivel,nome,acima_de,pct').lte('vigencia_inicio', mes).order('vigencia_inicio', { ascending: false })
+    ]).then(function (rr) {
+      if (id !== pedido) return;
+      var e = rr[0].error || rr[1].error;
+      if (e) return falhou(alvo, e);
+      var linhas = rr[0].data || [];
+      var fx = rr[1].data || [];
+      var vig = fx.length ? fx[0].vigencia_inicio : null;
+      fx = fx.filter(function (f) { return f.vigencia_inicio === vig; }).sort(function (a, b) { return a.acima_de - b.acima_de; });
+      if (!linhas.length) {
+        alvo.innerHTML = '<p class="painel-msg">Seu acesso ainda não está ligado a um vendedor. Fale com a equipe WeRev.</p>';
+        return;
+      }
+      var admin = perfil.papel === 'admin';
+      var escolhido = admin ? (ler('cic-vendedor') || linhas[0].vendedor_slug) : linhas[0].vendedor_slug;
+      var v = linhas.filter(function (l) { return l.vendedor_slug === escolhido; })[0] || linhas[0];
+      var lf = Number(v.liquido_final) || 0;
+      var marcos = fx.map(function (f) {
+        return { valor: Number(f.acima_de), rotulo: f.nome + ' · ' + pct(f.pct), sub: Number(f.acima_de) > 0 ? 'acima de ' + rsCurto(f.acima_de) : 'desde a 1ª venda', atual: f.nivel === v.nivel };
+      });
+      var fimRegua = fx.length ? Number(fx[fx.length - 1].acima_de) * 1.25 : lf;
+      var frase = v.proximo_nivel
+        ? 'Faltam <strong>' + rs(v.falta_proximo) + '</strong> para o ' + esc(v.proximo_nome) + ' (' + pct(v.proximo_pct) + ' sobre o total).'
+        : 'Você está no nível máximo da régua.';
+      var seletor = admin ? '<label class="seletor"><span>Vendedor</span><select id="sel-vendedor">' + linhas.map(function (l) {
+        return '<option value="' + esc(l.vendedor_slug) + '"' + (l.vendedor_slug === v.vendedor_slug ? ' selected' : '') + '>' + esc(l.vendedor_nome) + '</option>';
+      }).join('') + '</select></label>' : '';
+      alvo.innerHTML =
+        '<div class="painel-cabeca"><p class="periodo">' + esc((admin ? v.vendedor_nome + ' · ' : '') + nomeMes(mes)) + '</p>' + seletor + '</div>' +
+        '<div class="kpis">' +
+        kpi('Líquido do mês', rs(lf), 'bruto ' + rs(v.vendas_bruto) + (Number(v.reembolsos_qtd) ? ' · já descontados os reembolsos' : ''), true) +
+        kpi('Comissão', rs(v.comissao), esc(v.nivel_nome || '–') + ' · ' + pct(v.pct)) +
+        kpi('Vendas', num(v.vendas_qtd), rs(v.vendas_liquido) + ' em vendas') +
+        kpi('Reembolsos do mês', num(v.reembolsos_qtd), Number(v.reembolsos_qtd) ? rs(v.reembolsos_liquido) + ' abatidos' : 'nenhum') +
+        kpi('Conversão', pct(v.conversao), num(v.vendas_qtd) + ' vendas · ' + num(v.contatos) + ' contatos ' + convTag(v.conversao, v.conversao_alvo)) +
+        '</div>' +
+        bloco('Régua de níveis', frase, fx.length ? regua(marcos, lf, { fim: Math.max(fimRegua, lf * 1.05) }) : '<p class="painel-msg">Régua do mês não cadastrada.</p>');
+      var sel = $('sel-vendedor');
+      if (sel) sel.addEventListener('change', function () { guardar('cic-vendedor', sel.value); telaMinha(alvo, ++pedido); });
+      $('bloco-links').hidden = false;
+      carregarLinks(admin ? v.vendedor_nome : null);
+    });
+  }
+
+  var RENDER = { home: telaHome, metadomes: telaMeta, minhapagina: telaMinha };
+
   // ---------- Minha página: links de venda ----------
-  function carregarLinks() {
+  function carregarLinks(soDe) {
     var lista = $('links-lista');
     lista.innerHTML = '<p class="links-vazio">Carregando...</p>';
     $('links-sub').textContent = perfil.papel === 'admin'
-      ? 'Links de cada vendedor. A venda entra no nome de quem está no link.'
+      ? 'Links do vendedor escolhido. A venda entra no nome de quem está no link.'
       : 'Use sempre estes links: é por eles que a venda entra no seu nome.';
     sb.rpc('cic_meus_links').then(function (r) {
       lista.innerHTML = '';
       if (r.error) { lista.innerHTML = '<p class="links-vazio"></p>'; lista.firstChild.textContent = traduzErro(r.error); return; }
-      if (!r.data.length) { lista.innerHTML = '<p class="links-vazio">Nenhum link cadastrado.</p>'; return; }
+      var dados = soDe ? r.data.filter(function (l) { return l.vendedor_nome === soDe; }) : r.data;
+      if (!dados.length) { lista.innerHTML = '<p class="links-vazio">Nenhum link cadastrado.</p>'; return; }
       var grupos = {};
-      r.data.forEach(function (l) { (grupos[l.vendedor_nome] = grupos[l.vendedor_nome] || []).push(l); });
+      dados.forEach(function (l) { (grupos[l.vendedor_nome] = grupos[l.vendedor_nome] || []).push(l); });
       Object.keys(grupos).forEach(function (nome) {
         var g = document.createElement('div');
         g.className = 'links-grupo';
