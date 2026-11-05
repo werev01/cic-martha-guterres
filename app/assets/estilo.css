@@ -298,7 +298,7 @@ input { font: inherit; }
 
 /* Gestão: barras horizontais, funil, duas colunas */
 .barras-h { display: grid; gap: 10px; }
-.bh { display: grid; grid-template-columns: minmax(120px, 34%) 1fr 76px; align-items: center; gap: 12px; font-size: 13.5px; }
+.bh { display: grid; grid-template-columns: minmax(120px, 34%) 1fr 110px; align-items: center; gap: 12px; font-size: 13.5px; }
 .bh-rotulo span { display: block; font-size: 12px; color: var(--texto-2); }
 .bh-trilho { height: 10px; background: #f0ebe9; border-radius: 99px; overflow: hidden; }
 .bh-barra { height: 100%; border-radius: 99px; min-width: 2px; }
@@ -318,6 +318,9 @@ input { font: inherit; }
 .kpis-2 { grid-template-columns: 1fr 1fr; margin-bottom: 8px; }
 .sub-h { margin: 20px 0 10px; font-size: 12px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--taupe); }
 .nota { margin: 12px 0 0; }
+.nome-longo { white-space: normal; overflow-wrap: anywhere; min-width: 180px; max-width: 280px; }
+.rodape-fonte { margin: 28px 0 0; padding-top: 14px; border-top: 1px solid #e3ddda; font-size: 12px; color: var(--texto-2); line-height: 1.5; }
+.bh-valor { min-width: 0; }
 
 .btn-menu { display: none; }
 
