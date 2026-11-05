@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-05b';
-  var MUDANCAS = 'Relatórios (lista de vendas) e Reembolsos, só comercial, com filtro de período e, pro admin, de vendedor';
+  var BUILD = '2026-11-05c';
+  var MUDANCAS = 'Telas de gestão: Desempenho individual, Taxa de passagem, Motivos de perda e Ciclo de vendas';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -347,7 +347,7 @@
     }).join('') + '</tbody></table></div>';
   }
 
-  var COR = { comercial: '#1f2b38' };
+  var COR = { comercial: '#1f2b38', perda: '#8e6e59', cs: '#c6c6c6' };
 
   // ---------- Home (admin) ----------
   function telaHome(alvo, id) {
@@ -488,7 +488,7 @@
     return ((p[0] || '').charAt(0) + (p.length > 1 ? p[p.length - 1].charAt(0) : '')).toUpperCase();
   }
   function pessoa(nome) {
-    if (!nome) return '–';
+    if (!nome) return '<span class="pessoa pessoa-sem"><i>–</i>Sem vendedor</span>';
     return '<span class="pessoa"><i>' + esc(iniciais(nome)) + '</i>' + esc(nome) + '</span>';
   }
   // +5531999990000 -> +55 31 99999-0000 (outros países ficam como vieram)
@@ -499,11 +499,12 @@
   function plural(n, um, varios) { return num(n) + ' ' + (Number(n) === 1 ? um : varios); }
 
   // Monta a barra de filtro e chama recarregar() quando muda
-  function barraFiltro(alvo, recarregar) {
+  function barraFiltro(alvo, recarregar, comSem) {
     if (!filtro) filtro = { ini: mesAtual(), fim: hojeSP(), vend: '' };
     var admin = perfil.papel === 'admin';
     var opcoes = admin ? '<label class="seletor"><span>Vendedor</span><select id="f-vend"><option value="">Todos</option>' +
-            (vendedoresCache || []).map(function (v) {
+      (comSem ? '<option value="_sem"' + (filtro.vend === '_sem' ? ' selected' : '') + '>Sem vendedor</option>' : '') +
+      (vendedoresCache || []).map(function (v) {
         return '<option value="' + esc(v.utm_slug) + '"' + (filtro.vend === v.utm_slug ? ' selected' : '') + '>' + esc(v.nome) + '</option>';
       }).join('') + '</select></label>' : '';
     alvo.innerHTML = '<div class="filtro">' +
@@ -522,7 +523,7 @@
     return $('f-corpo');
   }
   function aplicaVend(linhas) {
-    if (!filtro.vend) return linhas;
+    if (!filtro.vend || filtro.vend === '_sem') return linhas;
     return linhas.filter(function (l) { return l.vendedor_slug === filtro.vend; });
   }
   function comVendedores(feito) {
@@ -616,7 +617,169 @@
     });
   }
 
-  var RENDER = { home: telaHome, metadomes: telaMeta, minhapagina: telaMinha, relatorios: telaRelatorios, reembolsos: telaReembolsos };
+  // ---------- Telas de gestão (admin) ----------
+  // Barras horizontais: itens [{rotulo, valor, sub}]
+  function barrasH(itens, opc) {
+    opc = opc || {};
+    if (!itens.length) return '<p class="painel-msg vazio">' + esc(opc.vazio || 'Nada no período.') + '</p>';
+    var max = Math.max.apply(null, itens.map(function (i) { return Number(i.valor) || 0; }).concat([1]));
+    var total = itens.reduce(function (a, i) { return a + (Number(i.valor) || 0); }, 0);
+    return '<div class="barras-h">' + itens.map(function (i) {
+      var v = Number(i.valor) || 0;
+      return '<div class="bh"><div class="bh-rotulo">' + esc(i.rotulo) + (i.sub ? '<span>' + i.sub + '</span>' : '') + '</div>' +
+        '<div class="bh-trilho"><div class="bh-barra" style="width:' + (v / max * 100).toFixed(1) + '%;background:' + (i.cor || opc.cor || COR.comercial) + '"></div></div>' +
+        '<div class="bh-valor">' + num(v) + (opc.semPct ? '' : ' <span>' + pct(total ? v / total : 0, 0) + '</span>') + '</div></div>';
+    }).join('') + '</div>';
+  }
+  function soma(lista, k) { return lista.reduce(function (a, x) { return a + (Number(x[k]) || 0); }, 0); }
+  function horas(h) {
+    if (h === null || h === undefined) return '–';
+    h = Number(h);
+    if (h < 24) return h.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' h';
+    return (h / 24).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' dias';
+  }
+  function telaGestao(alvo, id, comSem, buscar) {
+    carregando(alvo);
+    comVendedores(function () {
+      if (id !== pedido) return;
+      var corpo = barraFiltro(alvo, carregar, comSem);
+      carregar(id);
+      function carregar(idc) {
+        corpo.innerHTML = '<p class="painel-msg">Carregando...</p>';
+        buscar(corpo, idc);
+      }
+    });
+  }
+  function rpcGestao(nome, comVend) {
+    var par = { p_inicio: filtro.ini, p_fim: filtro.fim };
+    if (comVend) par.p_vendedor = filtro.vend || null;
+    return sb.rpc(nome, par);
+  }
+
+  function telaDesempenho(alvo, id) {
+    telaGestao(alvo, id, false, function (corpo, idc) {
+      rpcGestao('cic_desempenho', false).then(function (r) {
+        if (idc !== pedido) return;
+        if (r.error) return falhou(corpo, r.error);
+        var linhas = r.data || [];
+        var sel = filtro.vend && filtro.vend !== '_sem' ? linhas.filter(function (l) { return l.vendedor_slug === filtro.vend; }) : linhas;
+        var nome = sel.length === 1 && filtro.vend ? sel[0].vendedor_nome : 'Time';
+        var vq = soma(sel, 'vendas_qtd'), ct = soma(sel, 'contatos');
+        var alvoConv = linhas.length ? linhas[0].conversao_alvo : 0.15;
+        var conv = ct ? vq / ct : null;
+        var cards = '<p class="periodo">' + esc(nome) + ' · ' + periodoTxt() + '</p><div class="kpis">' +
+          kpi('Líquido', rs(soma(sel, 'liquido')), plural(vq, 'venda', 'vendas') + ' na Hubla', true) +
+          kpi('Comissão no mês', rs(soma(sel, 'comissao')), sel.length === 1 ? esc(sel[0].nivel_nome || '') + ' · ' + pct(sel[0].pct) : 'soma do time') +
+          kpi('Conversão', pct(conv), num(vq) + ' vendas · ' + num(ct) + ' contatos ' + convTag(conv, alvoConv)) +
+          kpi('Perdas comerciais', num(soma(sel, 'perdas_comerciais')), 'sem as saídas CS') +
+          kpi('Mensagens enviadas', num(soma(sel, 'msgs_vendedor')), num(soma(sel, 'tpl_vendedor')) + ' templates') + '</div>';
+        var tab = linhas.map(function (l) {
+          return [pessoa(l.vendedor_nome), num(l.vendas_qtd), '<strong>' + rs(l.liquido) + '</strong>', rs(l.comissao),
+            num(l.entradas_0), num(l.entradas_1), num(l.entradas_2), num(l.entradas_3), num(l.entradas_4),
+            num(l.perdas_comerciais), pct(l.conversao), num(l.msgs_vendedor), num(l.tpl_vendedor)];
+        });
+        corpo.innerHTML = cards + bloco('Comparativo', 'Vendas e líquido pela Hubla. Entradas: negócios que entraram em cada etapa do CRM no período. Comissão: mês inteiro.',
+          tabela(['Vendedor', 'Vendas', 'Líquido', 'Comissão', 'Base', 'Discad.', 'Contato', 'Negoc.', 'Forecast', 'Perdas', 'Conversão', 'Msgs', 'Templates'],
+            tab, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]));
+      });
+    });
+  }
+
+  function telaPassagem(alvo, id) {
+    telaGestao(alvo, id, true, function (corpo, idc) {
+      rpcGestao('cic_taxa_passagem', true).then(function (r) {
+        if (idc !== pedido) return;
+        if (r.error) return falhou(corpo, r.error);
+        var et = r.data || [];
+        var max = Math.max.apply(null, et.map(function (e) { return Number(e.entraram); }).concat([1]));
+        var funil = '<div class="funil">' + et.map(function (e) {
+          return '<div class="funil-etapa"><div class="funil-nome"><strong>' + e.ordem + '. ' + esc(e.etapa) + '</strong>' +
+            '<span>' + num(e.entraram) + ' entraram</span></div>' +
+            '<div class="funil-trilho"><div class="funil-barra" style="width:' + (Number(e.entraram) / max * 100).toFixed(1) + '%"></div></div>' +
+            '<div class="funil-pct"><strong>' + pct(e.passagem, 0) + '</strong><span>passaram</span></div></div>';
+        }).join('') + '</div>';
+        var tab = et.map(function (e) {
+          return ['<strong>' + e.ordem + '. ' + esc(e.etapa) + '</strong>', num(e.entraram), num(e.avancaram), pct(e.passagem),
+            num(e.perdidos), num(e.vendas), num(e.abertos)];
+        });
+        corpo.innerHTML = bloco('Funil do CRM', 'Negócios que entraram em cada etapa no período e quantos passaram adiante (etapa seguinte ou venda na Hubla).', funil) +
+          bloco('Por etapa', 'Perdidos: perdas comerciais paradas na etapa (sem as saídas CS). Vendas: venda paga na Hubla, casada pelo telefone. Abertos: ainda parados ali.',
+            tabela(['Etapa', 'Entraram', 'Passaram', 'Passagem', 'Perdidos', 'Vendas', 'Abertos'], tab, [1, 2, 3, 4, 5, 6]));
+      });
+    });
+  }
+
+  function telaMotivos(alvo, id) {
+    telaGestao(alvo, id, true, function (corpo, idc) {
+      rpcGestao('cic_motivos_perda', true).then(function (r) {
+        if (idc !== pedido) return;
+        if (r.error) return falhou(corpo, r.error);
+        var linhas = r.data || [];
+        var com = linhas.filter(function (l) { return l.tipo === 'comercial'; });
+        var cs = linhas.filter(function (l) { return l.tipo === 'cs'; });
+        var agrupa = function (lista, chave) {
+          var m = {};
+          lista.forEach(function (l) { m[l[chave]] = (m[l[chave]] || 0) + Number(l.qtd); });
+          return Object.keys(m).map(function (k) { return { rotulo: k, valor: m[k] }; }).sort(function (a, b) { return b.valor - a.valor; });
+        };
+        var grupos = agrupa(com.map(function (l) { return { g: l.grupo ? 'Grupo [' + l.grupo + ']' : 'Sem grupo', qtd: l.qtd }; }), 'g');
+        var etapas = {};
+        com.forEach(function (l) { var k = l.etapa_ordem == null ? 99 : l.etapa_ordem; etapas[k] = etapas[k] || { rotulo: l.etapa, valor: 0 }; etapas[k].valor += Number(l.qtd); });
+        var etapaItens = Object.keys(etapas).sort(function (a, b) { return a - b; }).map(function (k) { return etapas[k]; });
+        // motivo x vendedor
+        var vends = agrupa(com, 'vendedor_nome').map(function (v) { return v.rotulo; });
+        var mot = agrupa(com, 'motivo');
+        var matriz = mot.map(function (m) {
+          return [esc(m.rotulo)].concat(vends.map(function (v) {
+            var q = com.filter(function (l) { return l.motivo === m.rotulo && l.vendedor_nome === v; }).reduce(function (a, l) { return a + Number(l.qtd); }, 0);
+            return q ? num(q) : '<span class="fraco">–</span>';
+          })).concat(['<strong>' + num(m.valor) + '</strong>']);
+        });
+        var totCom = soma(com, 'qtd'), totCs = soma(cs, 'qtd');
+        var numCols = vends.map(function (v, i) { return i + 1; }).concat([vends.length + 1]);
+        corpo.innerHTML = '<div class="kpis">' +
+          kpi('Perdas comerciais', num(totCom), 'base dos % desta tela', true) +
+          kpi('Saídas / CS', num(totCs), 'detrator, blocklist, reembolso; fora da perda comercial') + '</div>' +
+          bloco('Por motivo', 'Perdas comerciais no período.', barrasH(mot, { vazio: 'Nenhuma perda comercial no período.' })) +
+          (com.length ? bloco('Motivo x vendedor', '', tabela(['Motivo'].concat(vends).concat(['Total']), matriz, numCols)) : '') +
+          '<div class="duas">' +
+          bloco('Por grupo', 'Código entre colchetes do motivo.', barrasH(grupos)) +
+          bloco('Etapa da perda', 'Última etapa do negócio antes de ser perdido.', barrasH(etapaItens)) + '</div>' +
+          bloco('Saídas / CS', 'Não entram nos % de perda comercial.', barrasH(agrupa(cs, 'motivo'), { cor: COR.cs, vazio: 'Nenhuma saída de CS no período.' }));
+      });
+    });
+  }
+
+  function telaCiclo(alvo, id) {
+    telaGestao(alvo, id, true, function (corpo, idc) {
+      rpcGestao('cic_ciclo_venda', true).then(function (r) {
+        if (idc !== pedido) return;
+        if (r.error) return falhou(corpo, r.error);
+        var linhas = r.data || [];
+        var lado = function (tipo, titulo, sub, cor) {
+          var t = linhas.filter(function (l) { return l.tipo === tipo && l.vendedor_slug === '_time'; })[0];
+          if (!t || !Number(t.casos)) return bloco(titulo, sub, '<p class="painel-msg vazio">Sem casos no período.</p>' +
+            (t && Number(t.sem_historico) ? '<p class="fraco">' + plural(t.sem_historico, 'caso', 'casos') + ' sem histórico (desfecho a menos de 6 min da entrada).</p>' : ''));
+          var vend = linhas.filter(function (l) { return l.tipo === tipo && l.vendedor_slug !== '_time'; });
+          return bloco(titulo, sub,
+            '<div class="kpis kpis-2">' + kpi('Mediana', horas(t.mediana_h), plural(t.casos, 'caso', 'casos'), true) + kpi('Média', horas(t.media_h), '') + '</div>' +
+            '<h3 class="sub-h">Faixas</h3>' + barrasH([
+              { rotulo: 'Até 1 dia', valor: t.ate_1d }, { rotulo: '1 a 3 dias', valor: t.de_1a3d },
+              { rotulo: '3 a 7 dias', valor: t.de_3a7d }, { rotulo: 'Mais de 7 dias', valor: t.mais_7d }], { cor: cor }) +
+            '<h3 class="sub-h">Por vendedor</h3>' + tabela(['Vendedor', 'Casos', 'Mediana', 'Média'], vend.map(function (v) {
+              return [pessoa(v.vendedor_slug === '_sem' ? null : v.vendedor_nome) , num(v.casos), horas(v.mediana_h), horas(v.media_h)];
+            }), [1, 2, 3]) +
+            (Number(t.sem_historico) ? '<p class="fraco nota">' + plural(t.sem_historico, 'caso', 'casos') + ' sem histórico ficaram fora (desfecho a menos de 6 min da entrada no CRM).</p>' : ''));
+        };
+        corpo.innerHTML = '<div class="duas">' +
+          lado('venda', 'Até a venda', 'Da entrada do negócio no CRM até a venda paga na Hubla (casada pelo telefone).', COR.comercial) +
+          lado('perda', 'Até a perda', 'Da entrada até a perda comercial (sem as saídas CS).', COR.perda) + '</div>';
+      });
+    });
+  }
+
+  var RENDER = { home: telaHome, metadomes: telaMeta, minhapagina: telaMinha, relatorios: telaRelatorios, reembolsos: telaReembolsos,
+    desempenho: telaDesempenho, taxapassagem: telaPassagem, motivosperda: telaMotivos, ciclovenda: telaCiclo };
 
   // ---------- Minha página: links de venda ----------
   function carregarLinks(soDe) {
