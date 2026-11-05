@@ -3,7 +3,7 @@
   "name": "[MARTHA] Hubla · Vendas",
   "description": "Recebe da Hubla fatura paga e mudanças de status e grava em public.hubla_vendas (upsert por invoice_id).",
   "active": true,
-  "versionId": "274870a6-3a7b-4cf0-b51c-6cf1bdca3ab5",
+  "versionId": "1f8859b9-d2da-4573-ab3b-1b1ccc6803e5",
   "nodes": [
     {
       "name": "Webhook Hubla",
@@ -152,6 +152,45 @@
       }
     },
     {
+      "name": "Config repasse",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        560,
+        360
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "mapa_fluxos",
+              "type": "object",
+              "value": "={{ { \"rknQJI9bMjaNjnuUziSN\": \"<URL_UNNICHAT_COMPRA_APROVADA>\", \"rjJkwWreyVXnn7hYgG85\": \"<URL_UNNICHAT_MEAL_PREP>\" } }}"
+            }
+          ]
+        }
+      },
+      "notes": "Mapa product_id -> URL de start do fluxo no Unnichat. URLs reais só no n8n. Não commitar."
+    },
+    {
+      "name": "Fluxo do produto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Resolve o fluxo do Unnichat pelo product_id da Hubla (mapa em 'Config repasse').\n// Produto fora do mapa não repassa: o item sai daqui sem erro e o caminho termina.\nreturn $input.all()\n  .filter(i => (i.json.mapa_fluxos || {})[i.json.product_id])\n  .map(i => { const { mapa_fluxos, ...r } = i.json; return { json: { ...r, unnichat_url: mapa_fluxos[i.json.product_id] } }; });"
+      }
+    },
+    {
       "name": "Enviar pro Unnichat",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
@@ -161,7 +200,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "<URL_UNNICHAT_COMPRA_APROVADA>",
+        "url": "={{ $json.unnichat_url }}",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
@@ -171,7 +210,7 @@
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 5000,
-      "notes": "URL real fica só no n8n (dispara fluxo no Unnichat). Não commitar."
+      "notes": "URL vem do mapa em 'Config repasse'."
     }
   ],
   "connections": {
@@ -206,7 +245,7 @@
       "main": [
         [
           {
-            "node": "Enviar pro Unnichat",
+            "node": "Fluxo do produto",
             "type": "main",
             "index": 0
           }
@@ -218,12 +257,34 @@
       "main": [
         [
           {
-            "node": "Tem telefone?",
+            "node": "Config repasse",
             "type": "main",
             "index": 0
           }
         ],
         []
+      ]
+    },
+    "Config repasse": {
+      "main": [
+        [
+          {
+            "node": "Tem telefone?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fluxo do produto": {
+      "main": [
+        [
+          {
+            "node": "Enviar pro Unnichat",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },

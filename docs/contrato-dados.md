@@ -77,9 +77,31 @@ continuam como estavam; os do n8n são regras adicionais.
 
 Produtos por regra (05/11/2026): Ultra Black 2026 nas 4 regras. Meal Prep Express +
 Regina IA só nas regras de Vendas e Reembolsos (carrinho e recusa do Meal Prep não são
-medidos) e não dispara nada no Unnichat. Produto novo entra marcando na regra da Hubla,
-sem mexer no workflow. Atenção: o mapeamento grava só `products[0]`; se algum produto
-passar a ser vendido como order bump, ajustar antes.
+medidos). Produto novo entra marcando na regra da Hubla, sem mexer no workflow (só
+grava; repasse ao Unnichat exige entrar no mapa abaixo). Atenção: o mapeamento grava só
+`products[0]`; se algum produto passar a ser vendido como order bump, ajustar antes.
+
+### Repasse ao Unnichat (n8n, não é webhook da Hubla)
+
+Vendas, Carrinho e Recusadas mandam `{name, email, phone}` pra URL de start de um fluxo
+do Unnichat (phone só com dígitos, `55` na frente quando vem com 10 ou 11). Só passa
+quem tem telefone com 10 a 15 dígitos. Reembolsos não repassa. A gravação no Supabase
+não depende do repasse. As URLs reais ficam só no n8n; no export do repo viram
+`<URL_UNNICHAT_...>`.
+
+**Vendas: repasse por `product_id`** (05/11/2026). Só `invoice.payment_succeeded`. Nó
+"Config repasse" guarda o mapa `product_id -> URL`; nó "Fluxo do produto" resolve a URL.
+Produto fora do mapa não repassa (sai sem erro). Mapa atual:
+
+| product_id | Produto | Fluxo no Unnichat |
+|---|---|---|
+| `rknQJI9bMjaNjnuUziSN` | Ultra Black vitalícia | Compra Aprovada BF26 (`<URL_UNNICHAT_COMPRA_APROVADA>`) |
+| `rjJkwWreyVXnn7hYgG85` | Meal Prep Express + Regina IA | fluxo próprio desde 05/11/2026 (`<URL_UNNICHAT_MEAL_PREP>`) |
+
+Produto novo com fluxo: acrescentar a linha no "Config repasse" e publicar.
+
+Carrinho e Recusadas: uma URL fixa cada (`<URL_UNNICHAT_CARRINHO_ABANDONADO>`,
+`<URL_UNNICHAT_COMPRA_RECUSADA>`), sem filtro de produto.
 
 | Workflow | Path | Eventos marcados na Hubla | Tabela |
 |---|---|---|---|
