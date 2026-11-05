@@ -32,6 +32,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261105_0012_cic_fase1.sql` | trava de venda paga em `hubla_vendas`, funções internas e RPCs da fase 1 (`cic_vendedor_mes`, `cic_meta_mes`, `cic_home`) |
 | `20261105_0013_reembolso_por_status.sql` | trava libera paid -> refunded/chargeback (só status e data); venda válida = foi paga um dia; reembolso também pelo status da venda; `cic_home` só com o comercial |
 | `20261105_0014_listas_vendas_reembolsos.sql` | RPCs `cic_lista_vendas` e `cic_lista_reembolsos` (telas Relatórios e Reembolsos, só comercial) e função interna `cic_fone` |
+| `20261105_0015_gestao.sql` | telas de gestão: `cic_desempenho`, `cic_taxa_passagem`, `cic_motivos_perda`, `cic_ciclo_venda` (só admin); internas `cic_negocios`, `cic_fone_chave`; motivo "[2] Já é cliente" sem o CMP; Daniel Godoy vendedor (segue admin) |
 
 ## Camada tratada (RPCs do app)
 
@@ -47,10 +48,17 @@ Regras em `escopo.md` (CIC fase 1). Todas `security definer`, `stable`,
 | `cic_lista_vendas(p_inicio, p_fim)` | admin: todos os vendedores; vendedor: só as dele; sem perfil: vazio | uma linha por venda válida com vendedor: data e hora (SP), cliente, telefone (`+55...`), vendedor, produto, oferta, bruto, líquido, reembolsada e data do reembolso; mais recente primeiro |
 | `cic_lista_reembolsos(p_inicio, p_fim)` | idem | uma linha por reembolso efetivado de venda com vendedor: data do reembolso e da venda, cliente, telefone, vendedor, produto, líquido abatido |
 
+| `cic_desempenho(p_inicio, p_fim, p_vendedor)` | só admin | por vendedor ativo: vendas e líquido (Hubla), nível/comissão do mês de `p_inicio`, entradas por etapa 0 a 4, perdas comerciais, contatos, conversão, mensagens e templates do vendedor |
+| `cic_taxa_passagem(p_inicio, p_fim, p_vendedor)` | só admin | por etapa 0 a 4: entraram, passaram (etapa posterior ou venda), %, perdidos parados, vendas, abertos; `p_vendedor` = slug, `_sem` ou nulo (time) |
+| `cic_motivos_perda(p_inicio, p_fim, p_vendedor)` | só admin | linhas por tipo (comercial/cs), grupo, motivo, vendedor e etapa da perda, com quantidade |
+| `cic_ciclo_venda(p_inicio, p_fim, p_vendedor)` | só admin | por tipo (venda/perda) e vendedor, mais a linha `_time`: casos, mediana e média em horas, faixas (até 1 dia, 1 a 3, 3 a 7, mais de 7) e `sem_historico` (desfecho a menos de 6 min da entrada, fora da conta) |
+
+Regras das telas de gestão em `contrato-dados.md` (unnichat_eventos) e `escopo.md`.
+
 Só comercial em todas as RPCs, inclusive pro admin; orgânico fica no banco pra lista
 e análise (05/11/2026).
 
-Internas, sem acesso do app: `cic_fone`, `cic_vendas_validas`, `cic_reembolsos_validos`,
+Internas, sem acesso do app: `cic_negocios`, `cic_fone_chave`, `cic_fone`, `cic_vendas_validas`, `cic_reembolsos_validos`,
 `cic_contatos_em_contato` (todas por período `p_inicio, p_fim`).
 
 Trava (`trg_hubla_vendas_trava_paga`): linha `paid` só aceita virar `refunded`,

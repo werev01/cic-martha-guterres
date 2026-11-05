@@ -301,6 +301,18 @@ Efeito do `event_ts` na chave: se cair na hora do recebimento, reenvio do mesmo 
 vira linha nova; se `eventDate` for uma data fixa (ex.: criação do contato), o mesmo
 contato voltando pra mesma etapa vira uma linha só.
 
+**Ganhos e perdas (05/11/2026).** Chegam pelas automações [EVENTO] Ganho e [EVENTO]
+Perdido do Unnichat, com `status` won/lost no próprio evento (`motivo_perda` na perda;
+a perda vem sem `etapa_crm`). Em 05/11 houve backfill de 131 eventos pela API, marcado
+em `raw_payload->>'backfill'` (`api_deals_2026-11-05`, com o deal em `raw_payload->'deal'`);
+é tratado igual aos demais. Uso no CIC (migration 0015, `cic_negocios()`):
+- negócio = `negocio_id`; vendedor = `proprietario` mais recente (fallback: telefone,
+  últimos 8 dígitos); fora do cadastro de vendedores = sem vendedor;
+- grupo do motivo = código entre colchetes do texto; grupo `cs` (Detrator/Blocklist,
+  Reembolso/Cancelamento) é saída de CS, fora da perda comercial;
+- ganho no CIC é sempre a venda paga na Hubla, casada pelo telefone (DDI + DDD +
+  últimos 8); o won do CRM não entra em conta.
+
 ### `unnichat_automacoes` (webhook `/webhook/martha-guterres/unnichat/automacoes`)
 **Não alimentada por decisão (04/11/2026):** só o comercial reporta (eventos de CRM em
 `unnichat_eventos`) e o custo de mensagem das automações sai da coleta horária
