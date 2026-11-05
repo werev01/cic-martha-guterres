@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-05c';
-  var MUDANCAS = 'Telas de gestão: Desempenho individual, Taxa de passagem, Motivos de perda e Ciclo de vendas';
+  var BUILD = '2026-11-05d';
+  var MUDANCAS = 'Mensageria: volume e custo estimado de WhatsApp do comercial (broadcasts, automações, vendedores e copy)';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -347,7 +347,7 @@
     }).join('') + '</tbody></table></div>';
   }
 
-  var COR = { comercial: '#1f2b38', perda: '#8e6e59', cs: '#c6c6c6' };
+  var COR = { comercial: '#1f2b38', perda: '#8e6e59', cs: '#c6c6c6', automacao: '#844420', vendedor: '#8e6e59' };
 
   // ---------- Home (admin) ----------
   function telaHome(alvo, id) {
@@ -499,10 +499,10 @@
   function plural(n, um, varios) { return num(n) + ' ' + (Number(n) === 1 ? um : varios); }
 
   // Monta a barra de filtro e chama recarregar() quando muda
-  function barraFiltro(alvo, recarregar, comSem) {
+  function barraFiltro(alvo, recarregar, comSem, semVend) {
     if (!filtro) filtro = { ini: mesAtual(), fim: hojeSP(), vend: '' };
     var admin = perfil.papel === 'admin';
-    var opcoes = admin ? '<label class="seletor"><span>Vendedor</span><select id="f-vend"><option value="">Todos</option>' +
+    var opcoes = admin && !semVend ? '<label class="seletor"><span>Vendedor</span><select id="f-vend"><option value="">Todos</option>' +
       (comSem ? '<option value="_sem"' + (filtro.vend === '_sem' ? ' selected' : '') + '>Sem vendedor</option>' : '') +
       (vendedoresCache || []).map(function (v) {
         return '<option value="' + esc(v.utm_slug) + '"' + (filtro.vend === v.utm_slug ? ' selected' : '') + '>' + esc(v.nome) + '</option>';
@@ -628,7 +628,7 @@
       var v = Number(i.valor) || 0;
       return '<div class="bh"><div class="bh-rotulo">' + esc(i.rotulo) + (i.sub ? '<span>' + i.sub + '</span>' : '') + '</div>' +
         '<div class="bh-trilho"><div class="bh-barra" style="width:' + (v / max * 100).toFixed(1) + '%;background:' + (i.cor || opc.cor || COR.comercial) + '"></div></div>' +
-        '<div class="bh-valor">' + num(v) + (opc.semPct ? '' : ' <span>' + pct(total ? v / total : 0, 0) + '</span>') + '</div></div>';
+        '<div class="bh-valor">' + (opc.moeda ? rs(v) : num(v)) + (opc.semPct ? '' : ' <span>' + pct(total ? v / total : 0, 0) + '</span>') + '</div></div>';
     }).join('') + '</div>';
   }
   function soma(lista, k) { return lista.reduce(function (a, x) { return a + (Number(x[k]) || 0); }, 0); }
@@ -778,8 +778,75 @@
     });
   }
 
+  // ---------- Mensageria (admin) ----------
+  function telaMensageria(alvo, id) {
+    carregando(alvo);
+    if (id !== pedido) return;
+    var corpo = barraFiltro(alvo, carregar, false, true);
+    carregar(id);
+    function carregar(idc) {
+      corpo.innerHTML = '<p class="painel-msg">Carregando...</p>';
+      sb.rpc('cic_mensageria', { p_inicio: filtro.ini, p_fim: filtro.fim }).then(function (r) {
+        if (idc !== pedido) return;
+        if (r.error) return falhou(corpo, r.error);
+        var d = r.data || {}, re = d.resumo || {};
+        var reais = function (v) { return v === null || v === undefined ? '–' : rs(v); };
+        var cards = '<div class="kpis">' +
+          kpi('Custo estimado', reais(re.custo_total), 'templates + serviço' + (Number(re.franquia_desconto) ? ' − franquia ' + rs(re.franquia_desconto) : '') + ' · rate card', true) +
+          kpi('Custo por venda', reais(re.custo_por_venda), plural(re.vendas_comercial || 0, 'venda', 'vendas') + ' do comercial') +
+          kpi('Templates entregues', num(re.templates_entregues), num(re.templates_enviados) + ' enviados · ' + num(re.falhas) + ' falhas') +
+          kpi('Entrega', pct(re.taxa_entrega), 'entregues ÷ enviados') +
+          kpi('Leitura', pct(re.taxa_leitura), num(re.lidos) + ' lidos') + '</div>';
+        var origem = barrasH([
+          { rotulo: 'Broadcasts', valor: re.custo_broadcast || 0, cor: COR.comercial },
+          { rotulo: 'Automações', valor: re.custo_automacao || 0, cor: COR.automacao },
+          { rotulo: 'Vendedores', valor: re.custo_vendedor || 0, cor: COR.vendedor }], { moeda: true });
+        var cat = barrasH((d.por_categoria || []).map(function (c) {
+          return { rotulo: c.categoria, valor: c.custo || 0, sub: num(c.entregues) + ' entregues' };
+        }), { moeda: true, vazio: 'Nenhum template entregue no período.' });
+        var sessao = '<p class="fraco nota">Serviço (mensagem que não é template): ' + num(re.servico_msgs) + ' no período, ' + reais(re.custo_servico_bruto) +
+          ' brutos. Franquia de 1.000 por mês: ' + num(re.franquia_msgs) + ' usadas no período, desconto de ' + reais(re.franquia_desconto) +
+          ' no total (não rateado). Custo por origem é bruto, antes da franquia.</p>';
+        var bcs = (d.broadcasts || []).map(function (b) {
+          return ['<div class="nome-longo">' + esc(String(b.nome).replace(/^COMERCIAL_/i, '')) + '</div>', ddmm(b.dia), num(b.contatos), num(b.enviados), num(b.entregues), num(b.lidos), num(b.falhas),
+            esc(b.template || '–') + (b.categoria ? '<div class="fraco">' + esc(b.categoria) + '</div>' : ''), '<strong>' + reais(b.custo) + '</strong>'];
+        });
+        var aus = (d.automacoes || []).map(function (a) {
+          return [esc(a.automacao) + '<div class="fraco">' + esc(a.pasta || '') + '</div>', num(a.templates_enviados), num(a.templates_entregues),
+            num(a.sessao_entregues), esc(a.categoria || '–'), '<strong>' + reais(a.custo) + '</strong>'];
+        });
+        var vds = (d.vendedores || []).map(function (v) {
+          return [pessoa(v.vendedor), num(v.servico), num(v.contatos), num(v.tpl_utl), num(v.tpl_mkt), '<strong>' + reais(v.custo) + '</strong>', num(v.vendas), reais(v.custo_por_venda)];
+        });
+        var cps = (d.copy || []).map(function (c) {
+          return [esc(c.codigo_copy), num(c.contatos), num(c.vendas), num(c.vendas_comercial), pct(c.contatos ? c.vendas / c.contatos : null)];
+        });
+        var fonte = (d.preco || [])[0];
+        var precoTxt = (d.preco || []).map(function (p) {
+          return esc(p.categoria.toLowerCase()) + ' R$ ' + Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 4 });
+        }).join(' · ');
+        corpo.innerHTML = cards +
+          '<div class="duas">' + bloco('Custo por origem', 'Templates e serviço, antes da franquia.', origem) + bloco('Custo por categoria', 'Entregues x preço da categoria (SERVICE = serviço, antes da franquia).', cat) + '</div>' +
+          sessao +
+          bloco('Broadcasts', 'Só os do comercial (prefixo COMERCIAL_ omitido). Custo = templates entregues x preço da categoria + respostas de serviço.', bcs.length
+            ? tabela(['Broadcast', 'Data', 'Contatos', 'Enviados', 'Entregues', 'Lidos', 'Falhas', 'Template', 'Custo'], bcs, [2, 3, 4, 5, 6, 8])
+            : '<p class="painel-msg vazio">Nenhum broadcast no período.</p>') +
+          bloco('Automações', 'Volume do período pela diferença das fotos horárias. Custo = templates + serviço.', aus.length
+            ? tabela(['Automação', 'Templates enviados', 'Entregues', 'Serviço', 'Categoria', 'Custo'], aus, [1, 2, 3, 5])
+            : '<p class="painel-msg vazio">Nenhum envio de automação no período.</p>') +
+          bloco('Vendedores', 'Serviço: mensagens enviadas e agendadas pelo vendedor. Custo = serviço + templates do vendedor, antes da franquia.',
+            tabela(['Vendedor', 'Serviço', 'Contatos', 'Templates utl', 'Templates mkt', 'Custo', 'Vendas', 'Custo por venda'], vds, [1, 2, 3, 4, 5, 6, 7])) +
+          bloco('Por código de copy', 'Contatos que entraram no CRM com a copy e quantos compraram depois (venda paga na Hubla, casada pelo telefone).', cps.length
+            ? tabela(['Copy', 'Contatos', 'Vendas', 'Do comercial', 'Conversão'], cps, [1, 2, 3, 4])
+            : '<p class="painel-msg vazio">Nenhuma copy no período.</p>') +
+          '<p class="rodape-fonte">Custo estimado pelo rate card da Meta (' + (fonte ? esc(fonte.fonte) : 'tabela whatsapp_preco') + ': ' + precoTxt +
+          '; serviço com 1.000 grátis por número por mês). A fatura do Unnichat é a referência final.</p>';
+      });
+    }
+  }
+
   var RENDER = { home: telaHome, metadomes: telaMeta, minhapagina: telaMinha, relatorios: telaRelatorios, reembolsos: telaReembolsos,
-    desempenho: telaDesempenho, taxapassagem: telaPassagem, motivosperda: telaMotivos, ciclovenda: telaCiclo };
+    desempenho: telaDesempenho, taxapassagem: telaPassagem, motivosperda: telaMotivos, ciclovenda: telaCiclo, mensageria: telaMensageria };
 
   // ---------- Minha página: links de venda ----------
   function carregarLinks(soDe) {
