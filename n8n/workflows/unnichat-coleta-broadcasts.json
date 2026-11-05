@@ -1,0 +1,455 @@
+{
+  "id": "NYrzHafVIsxKWM2f",
+  "name": "[MARTHA] Unnichat · Coleta de broadcasts",
+  "description": "De hora em hora: métricas dos broadcasts comerciais da 0209 (prefixo [COMERCIAL] ou COMERCIAL_) desde 04/11, com regra de recoleta. Grava em unnichat_broadcasts.",
+  "active": true,
+  "versionId": "00e504c0-6a83-4089-acaf-c0e8fa2dae6f",
+  "nodes": [
+    {
+      "id": "089f4052-ee74-4616-8fde-d3045f08c4a9",
+      "name": "De hora em hora",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        192
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1,
+              "triggerAtMinute": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "acac3553-d813-46c2-a853-ebe91b4663a2",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        192
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "conexao",
+              "type": "string",
+              "value": "Martha Guterres 0209"
+            },
+            {
+              "id": "c2",
+              "name": "prefixos",
+              "type": "array",
+              "value": "={{ [\"[COMERCIAL]\", \"COMERCIAL_\"] }}"
+            },
+            {
+              "id": "c3",
+              "name": "data_inicial",
+              "type": "string",
+              "value": "2026-11-04T00:00:00-03:00"
+            },
+            {
+              "id": "c4",
+              "name": "status",
+              "type": "array",
+              "value": "={{ [\"draft\",\"idle\",\"processing\",\"success\",\"error\",\"archived\",\"awaiting-processing\",\"paused\",\"trash\",\"locked\",\"active\",\"inactive\"] }}"
+            },
+            {
+              "id": "c5",
+              "name": "base_url",
+              "type": "string",
+              "value": "https://unnichat.com.br/api"
+            },
+            {
+              "id": "c6",
+              "name": "intervalo_s",
+              "type": "number",
+              "value": 7
+            },
+            {
+              "id": "c7",
+              "name": "recoleta_horas",
+              "type": "number",
+              "value": 48
+            },
+            {
+              "id": "c8",
+              "name": "status_finais",
+              "type": "array",
+              "value": "={{ [\"success\",\"error\",\"archived\",\"trash\"] }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "edef92f2-c3af-42c3-9d53-cef216205304",
+      "name": "Listar broadcasts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        192
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.base_url }}/broadcasts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={{ JSON.stringify({ createdFrom: $('Config').first().json.data_inicial, perPage: 20, status: $('Config').first().json.status }) }}",
+        "options": {
+          "queryParameterArrays": "repeat",
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "cursor",
+                    "value": "={{ $response.body.metadata?.nextCursor ?? $response.body.pagination?.nextCursor }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !($response.body.metadata?.nextCursor ?? $response.body.pagination?.nextCursor) }}",
+              "limitPagesFetched": true,
+              "maxRequests": 50,
+              "requestInterval": 3000
+            }
+          }
+        }
+      },
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DLPlheJ00sK7zJND",
+          "name": "[MARTHA] Unnichat"
+        }
+      }
+    },
+    {
+      "id": "ef7493cd-6101-4d5e-bd1d-c04c85dfbfb1",
+      "name": "Ler banco",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        192
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/unnichat_broadcasts?select=broadcast_id,status,finished_at",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "lE0HnMSq3MSGveqV",
+          "name": "[MARTHA] Supabase service role"
+        }
+      }
+    },
+    {
+      "id": "e92f6ae4-8b63-4c47-a83c-75546d457bc7",
+      "name": "Selecionar broadcasts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        192
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Filtra os broadcasts comerciais que começaram a enviar e decide quem precisa de /metrics.\n// Regra de recoleta: não está no banco, ou status mudou, ou não está em status final,\n// ou não tem finishedAt, ou finalizou há menos de N horas (config).\nconst cfg = $('Config').first().json;\nconst lista = (b) => Array.isArray(b) ? b : (b?.data ?? b?.items ?? []);\nconst prefixos = (cfg.prefixos || []).map(p => String(p).toLowerCase());\nconst todos = $('Listar broadcasts').all().flatMap(i => lista(i.json));\nconst vistos = new Set();\nconst banco = {};\nfor (const i of $('Ler banco').all()) if (i.json?.broadcast_id) banco[i.json.broadcast_id] = i.json;\nconst limite = DateTime.now().minus({ hours: cfg.recoleta_horas });\nconst finais = new Set(cfg.status_finais || []);\nconst out = [];\nfor (const b of todos) {\n  if (!b?.id || vistos.has(b.id)) continue;\n  vistos.add(b.id);\n  const nome = String(b.name ?? '').toLowerCase();\n  if (!prefixos.some(p => nome.startsWith(p))) continue;\n  if (!b.startedAt || !(Number(b.contactsAmount) > 0)) continue;   // zerado: fica fora até começar a enviar\n  const db = banco[b.id];\n  const fim = b.finishedAt ? DateTime.fromISO(b.finishedAt) : null;\n  const recoleta = !db || db.status !== b.status || !finais.has(b.status) || !fim || fim > limite;\n  if (recoleta) out.push({ json: { broadcast_id: b.id } });\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "fb32065a-f7e8-40d8-9af9-b45e56474c36",
+      "name": "Loop broadcasts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        192
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "c7f79ed8-3060-4f80-8eb0-63e4c30b1f43",
+      "name": "Lote",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Junta as linhas num array só (até 500) pro upsert.\nconst linhas = $input.all().map(i => i.json).filter(j => j.broadcast_id);\nconst out = [];\nfor (let x = 0; x < linhas.length; x += 500) out.push({ json: { body: linhas.slice(x, x + 500) } });\nreturn out;"
+      }
+    },
+    {
+      "id": "a108a3fd-eef4-4285-a81a-fc1f3ee990ce",
+      "name": "Gravar no Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1568,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/unnichat_broadcasts?on_conflict=broadcast_id",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "supabaseApi": {
+          "id": "lE0HnMSq3MSGveqV",
+          "name": "[MARTHA] Supabase service role"
+        }
+      }
+    },
+    {
+      "id": "9bc6f9ad-b03d-4190-a7ba-b172f68a4b62",
+      "name": "Espera",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1344,
+        192
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $('Config').first().json.intervalo_s }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "83879285-9572-4a84-8b30-dba3febac722",
+      "name": "Métricas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1568,
+        192
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.base_url }}/broadcasts/{{ $('Loop broadcasts').first().json.broadcast_id }}/metrics",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DLPlheJ00sK7zJND",
+          "name": "[MARTHA] Unnichat"
+        }
+      }
+    },
+    {
+      "id": "279ed65c-2302-417f-8ede-d3cef064d6b0",
+      "name": "Mapear broadcast",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        272
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// /broadcasts/{id}/metrics -> public.unnichat_broadcasts. Contrato: docs/contrato-dados.md.\n// tpl_* = nodes de template (type send_template ou templateId preenchido) + primeiro passo se for template.\n// srv_* = demais nodes de mensagem (sessão). template_id = id da Meta do primeiro node de template.\nconst resp = $('Métricas').first().json;\nconst b = resp?.data ?? resp?.metrics ?? resp ?? {};\nconst m = b.metrics ?? {};\nconst int = (v) => { const n = Number(v); return v === null || v === undefined || v === '' || !Number.isFinite(n) ? 0 : Math.round(n); };\nconst ts = (v) => { if (!v) return null; const d = DateTime.fromISO(String(v)); return d.isValid ? d.toISO() : null; };\nconst soma = { tpl: { s: 0, d: 0, r: 0, f: 0 }, srv: { s: 0, d: 0, r: 0, f: 0 } };\nconst add = (k, n) => { soma[k].s += int(n.sent); soma[k].d += int(n.delivered); soma[k].r += int(n.read); soma[k].f += int(n.failed); };\nlet templateId = null;\nif (b.firstStepType === 'template' && m.firstStep) add('tpl', m.firstStep);\nfor (const n of (m.nodes ?? [])) {\n  const ehTpl = n.type === 'send_template' || (n.templateId !== null && n.templateId !== undefined && n.templateId !== '');\n  add(ehTpl ? 'tpl' : 'srv', n);\n  if (ehTpl && !templateId && n.templateId) templateId = String(n.templateId);\n}\nreturn [{ json: {\n  broadcast_id: b.id ?? $('Loop broadcasts').first().json.broadcast_id,\n  nome: b.name ?? null,\n  status: b.status ?? null,\n  contatos: b.contactsAmount ?? null,\n  send_at: ts(b.sendAt), started_at: ts(b.startedAt), finished_at: ts(b.finishedAt),\n  template_id: templateId,\n  tpl_enviados: soma.tpl.s, tpl_entregues: soma.tpl.d, tpl_lidos: soma.tpl.r, tpl_falhas: soma.tpl.f,\n  srv_enviados: soma.srv.s, srv_entregues: soma.srv.d, srv_lidos: soma.srv.r, srv_falhas: soma.srv.f,\n  raw_payload: resp\n} }];"
+      }
+    }
+  ],
+  "connections": {
+    "De hora em hora": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Listar broadcasts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar broadcasts": {
+      "main": [
+        [
+          {
+            "node": "Ler banco",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler banco": {
+      "main": [
+        [
+          {
+            "node": "Selecionar broadcasts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Selecionar broadcasts": {
+      "main": [
+        [
+          {
+            "node": "Loop broadcasts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop broadcasts": {
+      "main": [
+        [
+          {
+            "node": "Lote",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Espera",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lote": {
+      "main": [
+        [
+          {
+            "node": "Gravar no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espera": {
+      "main": [
+        [
+          {
+            "node": "Métricas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Métricas": {
+      "main": [
+        [
+          {
+            "node": "Mapear broadcast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mapear broadcast": {
+      "main": [
+        [
+          {
+            "node": "Loop broadcasts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lzBoaNrbFp4FALjY",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all"
+  },
+  "tags": [
+    {
+      "name": "martha"
+    },
+    {
+      "name": "fonte:unnichat"
+    },
+    {
+      "name": "tipo:agendado"
+    }
+  ],
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}
