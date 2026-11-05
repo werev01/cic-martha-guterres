@@ -224,10 +224,15 @@ Cada mudança no CRM (etapa, ganho, perda).
 | `valor_total`, `valor_liquido` | numeric | reais |
 | `motivo_perda` | text | |
 | `codigo_copy` | text | campo personalizado "Código Copy" (ex.: `CP 01`) |
+| `negocio_id` | text | id do negócio no CRM (`data.Etapa[].id`), desde a 0007 |
+| `etapa_desde` | timestamptz | quando o negócio entrou na etapa (`data.Etapa[].attributedIn`), desde a 0007 |
 | `raw_payload` | jsonb | **obr.** |
 
-Se o payload do Unnichat trouxer um id único do evento, trocamos a chave pra ele
-(migration pequena). Mandar o primeiro payload real pra eu conferir.
+**`data.Etapa` é uma lista de negócios**, não texto. Cada item traz `id`, `columnName`
+(a etapa, igual a `crm_etapas.nome_unnichat`), `status` (open/won/lost),
+`reasonLossDescription`, `pipelineName` e `attributedIn`. Usar o item com
+`attributedIn` mais recente. `data.eventDate` e `data.Data` chegam em **segundos
+Unix** (ex.: `"1793835192"`), não ISO (confirmado nos eventos de 04/11).
 
 **Origem no Unnichat:** conexão Martha Guterres 0209, pipeline
 `[COMERCIAL] Pipeline - Disparo`. Sete automações `[EVENTO]` (0. Base/Entrada,
@@ -244,9 +249,11 @@ Ganho e Perdido podem ter `Acao` diferente; grava o que vier.
 | Coluna | De onde vem |
 |---|---|
 | `telefone` | `data.phoneNumber`, mesma regra da blocklist (só dígitos; 10 ou 11 ganham `55`; fora de 10 a 15 para com erro) |
-| `event_ts` | `data.Data` ou `data.eventDate` se for ISO com data e hora (sem fuso assume -03:00); senão, hora do recebimento. **Pendente:** confirmar se `eventDate` é o momento do evento (ver escopo, Em aberto) |
+| `event_ts` | `data.eventDate` (segundos Unix); se vier ISO, aceita também. Sem data válida, hora do recebimento |
 | `acao` | `data.Acao`. Obrigatório no banco: vazio para com erro |
-| `etapa_crm` | `data.Etapa` |
+| `etapa_crm` | `columnName` do negócio mais recente em `data.Etapa` |
+| `status`, `motivo_perda`, `pipeline` | `status`, `reasonLossDescription`, `pipelineName` do mesmo negócio |
+| `negocio_id`, `etapa_desde` | `id`, `attributedIn` do mesmo negócio |
 | `nome`, `email` | `data.name`, `data.email` |
 | `origem` | `data.Origem` |
 | `proprietario` | `data.Proprietario` |

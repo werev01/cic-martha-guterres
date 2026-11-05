@@ -24,6 +24,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261104_0004_base.sql` | cadastros, funções de papel, RLS, `tmp_claude` + pg_cron |
 | `20261104_0005_comissao.sql` | régua de comissão (`comissao_faixas`, `cic_comissao()`) |
 | `20261104_0006_links_venda_utm.sql` | UTM com sublinhado, `cic_vendedor_de_utm()`, `links_venda`, `cic_meus_links()` |
+| `20261104_0007_ajustes_primeiros_eventos.sql` | guarda contra evento Hubla fora de ordem, `negocio_id`/`etapa_desde` no CRM, correção dos primeiros eventos |
 
 ## Tabelas de cadastro
 
