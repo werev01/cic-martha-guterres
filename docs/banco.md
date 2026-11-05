@@ -30,6 +30,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261105_0010_conversas_tpl_vendedor.sql` | `unnichat_conversas_dia`: `tpl_vendedor_utl`/`_mkt` viram `tpl_vendedor` (desfeita na 0011) |
 | `20261105_0011_conversas_tpl_vendedor_categoria.sql` | volta `tpl_vendedor_utl`/`_mkt` (a API REST traz a categoria do template) e remove `tpl_vendedor` |
 | `20261105_0012_cic_fase1.sql` | trava de venda paga em `hubla_vendas`, funções internas e RPCs da fase 1 (`cic_vendedor_mes`, `cic_meta_mes`, `cic_home`) |
+| `20261105_0013_reembolso_por_status.sql` | trava libera paid -> refunded/chargeback (só status e data); venda válida = foi paga um dia; reembolso também pelo status da venda; `cic_home` só com o comercial |
 
 ## Camada tratada (RPCs do app)
 
@@ -40,13 +41,15 @@ Regras em `escopo.md` (CIC fase 1). Todas `security definer`, `stable`,
 |---|---|---|
 | `cic_vendedor_mes(p_mes)` | admin: todos os vendedores ativos; vendedor: só ele; sem perfil: vazio | por vendedor: vendas (qtd, líquido, bruto), reembolsos do mês (qtd, líquido), líquido final, nível/%/comissão e falta pro próximo (`cic_comissao`), contatos em "2. Em Contato", conversão e alvo |
 | `cic_meta_mes(p_mes)` | só admin (senão erro 42501) | jsonb: líquido comercial final, vendas, reembolsos, primeira venda, dias úteis (mês, decorridos, restantes), projeção, `metas[]` (% , falta, falta por dia útil), `serie[]` diária com acumulado |
-| `cic_home(p_inicio, p_fim)` | só admin (senão erro 42501) | jsonb: `serie[]` por dia (qtd, líquido e bruto de comercial e orgânico, reembolsos), `produtos[]`, `conversao` do time |
+| `cic_home(p_inicio, p_fim)` | só admin (senão erro 42501) | jsonb, só comercial: `serie[]` por dia (vendas, líquido, bruto, reembolsos), `produtos[]`, `conversao` do time |
 
 Internas, sem acesso do app: `cic_vendas_validas`, `cic_reembolsos_validos`,
 `cic_contatos_em_contato` (todas por período `p_inicio, p_fim`).
 
-Trava: `trg_hubla_vendas_trava_paga` ignora qualquer atualização de linha com
-`status = 'paid'`. Overdue/unpaid virando paid continua passando.
+Trava (`trg_hubla_vendas_trava_paga`): linha `paid` só aceita virar `refunded`,
+`chargeback` ou `chargedback`, e aí muda só `status`, `event_type` e
+`invoice_modified_at`. Qualquer outra atualização de linha paga é ignorada; linha
+refunded/chargeback não muda mais. Overdue/unpaid virando paid continua passando.
 
 ## Tabelas de cadastro
 

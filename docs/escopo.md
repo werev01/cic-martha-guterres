@@ -121,18 +121,22 @@ Regras:
 
 ### CIC fase 1: números (decidido em 05/11/2026)
 
-- Venda válida: `hubla_vendas.status = 'paid'`, data = `sale_date` em São Paulo.
-  Overdue e unpaid ficam fora até pagar.
-- Linha de venda paga nunca é alterada (trava no banco, migration 0012). Reembolso é
-  outra linha, em `hubla_reembolsos`. Nenhuma linha é criada ou corrigida à mão.
+- Venda válida: foi paga um dia (`status` paid, refunded, chargeback ou chargedback),
+  data = `sale_date` em São Paulo. Overdue e unpaid ficam fora até pagar.
+- Venda paga não regride nem é reescrita (trava no banco, 0012/0013): só pode virar
+  refunded/chargeback, e aí muda só status e data; valores e UTM ficam os originais.
+  Nenhuma linha é criada ou corrigida à mão.
 - Valor: líquido (`seller_net_cents`). Bruto só como informação.
 - Vendedor: `cic_vendedor_de_utm(utm_source)`; sem vendedor = orgânico.
 - Meta do mês e comissão: só vendas com vendedor, sobre o líquido final (vendas menos
   reembolsos do mês). Ultra Black e Meal Prep contam igual.
-- Home: total da operação, comercial e orgânico separados.
-- Reembolso: só `invoice.refunded` (aceito não quer dizer realizado). Um por fatura,
-  abate no mês do reembolso, do vendedor da venda original, pelo líquido da venda. Sem
-  venda paga no banco, não há reembolso.
+- Dash mostra só o comercial (Home inclusive). Orgânico e reembolso de orgânico ficam
+  no banco pra lista e análise, fora do dash (05/11/2026).
+- Reembolso: `invoice.refunded` em `hubla_reembolsos` (aceito não quer dizer
+  realizado) OU a venda com status refunded/chargeback (o webhook de Vendas é o que
+  chega hoje). Um por fatura; data = `refunded_at`, senão `invoice_modified_at`. Abate
+  no mês do reembolso, do vendedor da venda original, pelo líquido da venda. Sem venda
+  paga no banco, não há reembolso.
 - Conversão: vendas pagas com vendedor ÷ contatos distintos (telefone) que entraram em
   "2. Em Contato" no período. Por vendedor: proprietário do card = `vendedores.nome`.
 - Projeção do mês: ritmo por dia útil contado desde o dia da primeira venda paga do mês
