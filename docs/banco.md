@@ -9,7 +9,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 
 | Camada | O que é | Quem lê |
 |---|---|---|
-| Bruta | 21 tabelas alimentadas pelo n8n (`hubla_*`, `tmb_*`, `unnichat_*`, `callix_*`). Contrato em `contrato-dados.md` | ninguém do app (RLS sem policy, sem grant) |
+| Bruta | 22 tabelas alimentadas pelo n8n (`hubla_*`, `tmb_*`, `unnichat_*`, `callix_*`). Contrato em `contrato-dados.md` | ninguém do app (RLS sem policy, sem grant) |
 | Cadastro | config, vendedores, perfis, menus, etapas, motivos, metas, calendário | app, via RLS |
 | Tratada | views que o app consome (ainda não criadas: entram com os primeiros payloads) | app, via RLS |
 | `tmp_claude` | views de trabalho/diagnóstico, validade de 12h | só ferramentas |
@@ -26,6 +26,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261104_0006_links_venda_utm.sql` | UTM com sublinhado, `cic_vendedor_de_utm()`, `links_venda`, `cic_meus_links()` |
 | `20261104_0007_ajustes_primeiros_eventos.sql` | guarda contra evento Hubla fora de ordem, `negocio_id`/`etapa_desde` no CRM, correção dos primeiros eventos |
 | `20261105_0008_unnichat_coletas.sql` | brutas `unnichat_automacoes_metricas` (foto horária) e `unnichat_automacoes_nodes` (template e categoria de cobrança), `template_id` em `unnichat_broadcasts`, config `whatsapp_preco` com os preços da Meta de 01/10/2026 |
+| `20261105_0009_unnichat_templates.sql` | bruta `unnichat_templates` (id da Meta -> nome e categoria), alimentada pela coleta de automações |
 
 ## Tabelas de cadastro
 

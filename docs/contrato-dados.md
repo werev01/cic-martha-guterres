@@ -50,6 +50,7 @@ referência pra montar os workflows. A DDL está em
 | Unnichat | `unnichat_automacoes` | webhook (não alimentada) | `contact_id,telefone,codigo_copy,minuto` |
 | Unnichat | `unnichat_automacoes_metricas` | coleta de hora em hora (API) | `automacao_id,node_id,coletado_em` |
 | Unnichat | `unnichat_automacoes_nodes` | coleta de hora em hora (API) | `automacao_id,node_id` |
+| Unnichat | `unnichat_templates` | coleta de hora em hora (API) | `template_id` |
 | Unnichat | `unnichat_blocklist` | webhook | `telefone` |
 | Unnichat | `unnichat_broadcasts` | coleta agendada (API) | `broadcast_id` |
 | Unnichat | `unnichat_conversas_dia` | coleta diária (API) | `dia,contact_id` |
@@ -311,7 +312,7 @@ de `/metrics` ser consulta pesada.
 | `GET /automations` | filtra as automações dessas pastas (`folderId`) |
 | `GET /meta/templates` | nome -> categoria (MARKETING, UTILITY, AUTHENTICATION) |
 | `GET /automations/{id}/metrics` | contadores acumulados por node |
-| `GET /automations/{id}` | o nome do template fica no `text` do node de envio de template |
+| `GET /automations/{id}` | o nome do template fica no `text` do node de envio de template. Só é chamado quando as métricas têm node `send_template` |
 
 #### `unnichat_automacoes_metricas` (bruta)
 Foto horária das métricas, uma linha por automação x node x hora. Métricas são
@@ -329,7 +330,23 @@ de cada node é base (não consumo daquela hora).
 | `enviados`, `entregues`, `lidos`, `falhas` | `messages.sent/delivered/read/failed` |
 | `raw_payload` | **obr.** o node; na linha `_total`, a resposta inteira |
 
-Só entram nodes com bloco `messages` (nodes de mensagem).
+Só entram nodes com bloco `messages` (nodes de mensagem). **Automação zerada não grava
+foto** (`totals.messages.sent = 0`): entra a partir da primeira hora em que enviar algo.
+Na view, hora sem foto = sem consumo; a diferença é contra a foto anterior que existir.
+
+#### `unnichat_templates` (bruta, estado atual)
+Templates do WhatsApp da conta, da mesma chamada `/meta/templates` (sem chamada extra).
+Liga o id da Meta (o mesmo do node de template em automações e broadcasts) à categoria.
+
+| Coluna | Origem |
+|---|---|
+| `template_id` | **obr.** `id` (id da Meta) |
+| `nome`, `categoria`, `idioma`, `status` | `name`, `category`, `language`, `status` |
+| `raw_payload` | **obr.** o template |
+| `visto_em` | **obr.** última coleta que viu o template; apagado não é removido |
+
+A categoria guardada é a atual. Se a Meta reclassificar um template, o histórico passa a
+ser lido com a categoria nova (tratar com vigência se acontecer).
 
 #### `unnichat_automacoes_nodes` (bruta, estado atual)
 Dimensão regravada a cada coleta. Liga cada node de mensagem ao template e à categoria
@@ -408,11 +425,43 @@ quando outro envio chega com body mais pobre. `email` e `profilePicUrl` são ign
 (ficam só no `raw_payload`).
 
 ### `unnichat_broadcasts` (coleta agendada, de hora em hora)
-`broadcast_id` **obr.**, `nome`, `status`, `contatos`, `send_at`, `started_at`,
-`finished_at`, contadores `tpl_enviados/entregues/lidos/falhas` e
-`srv_enviados/entregues/lidos/falhas` (int), `template_id` (template usado; a categoria
-de cobrança sai dele), `raw_payload` **obr.** Cada coleta regrava o broadcast inteiro
-(os contadores sobem até o fim).
+Workflow `[MARTHA] Unnichat · Coleta de broadcasts` (minuto 15 de cada hora). Cada coleta
+regrava o broadcast inteiro (os contadores sobem até o fim). Config no nó "Config":
+conexão 0209, prefixos, data inicial `2026-11-04T00:00:00-03:00`, lista de status,
+status finais, intervalo 7 s, recoleta 48 h.
+
+**Quais entram:**
+- Broadcast não tem pasta (`folderId` nulo): o filtro é pelo **prefixo do nome**,
+  `[COMERCIAL]` ou `COMERCIAL_`, sem diferenciar maiúscula.
+- `GET /broadcasts?createdFrom=<data inicial>&perPage=20&status=...` com **todos** os
+  status do enum (repetindo `status=`), lixeira inclusive: `draft, idle, processing,
+  success, error, archived, awaiting-processing, paused, trash, locked, active,
+  inactive`. Paginação por `cursor`.
+- **Zerado fica fora:** só entra broadcast que começou a enviar (`startedAt` preenchido e
+  `contactsAmount > 0`). Agendado, rascunho e arquivado sem envio entram quando
+  começarem.
+
+**Recoleta (eficiência):** antes do loop o workflow lê `broadcast_id, status,
+finished_at` do banco e só chama `GET /broadcasts/{id}/metrics` quando o broadcast não
+está no banco, ou o status mudou, ou não está em status final (`success`, `error`,
+`archived`, `trash`), ou não tem `finished_at`, ou finalizou há menos de 48 h.
+
+**Mapeamento** (resposta `{ success, data }`):
+
+| Coluna | Origem |
+|---|---|
+| `broadcast_id` | **obr.** `id` |
+| `nome`, `status`, `contatos` | `name`, `status`, `contactsAmount` |
+| `send_at`, `started_at`, `finished_at` | `sendAt`, `startedAt`, `finishedAt` |
+| `template_id` | `templateId` do **primeiro node de template** (id da Meta, liga em `unnichat_templates`). O `templateId` do topo do broadcast é id interno do Unnichat e não é usado |
+| `tpl_enviados/entregues/lidos/falhas` | soma dos nodes de template (`type = send_template` ou `templateId` preenchido) + o `firstStep` quando `firstStepType = template` |
+| `srv_enviados/entregues/lidos/falhas` | soma dos demais nodes de mensagem (sessão) |
+| `raw_payload` | **obr.** resposta de metrics inteira (detalhe por node fica aqui) |
+
+O primeiro passo dos broadcasts comerciais costuma não ser mensagem (`firstStepType =
+node`) e o template sai num node seguinte; por isso a classificação é por tipo de node,
+não por posição. Broadcast com mais de um template: `template_id` guarda o primeiro e o
+custo exato por template sai do `raw_payload`.
 
 ### `unnichat_conversas_dia` (coleta diária, 23h40)
 `dia` **obr.**, `contact_id` **obr.**, `telefone`, `vendedor`, contadores

@@ -2,8 +2,8 @@
   "id": "YUIxYEo01WNd5yXB",
   "name": "[MARTHA] Unnichat · Coleta de automações",
   "description": "De hora em hora: foto das métricas por node das automações da pasta [COMERCIAL] (0209) + template e categoria de cobrança de cada node. Grava em unnichat_automacoes_metricas e unnichat_automacoes_nodes.",
-  "active": false,
-  "versionId": "95866a84-4604-47c5-828d-3fdfa33e4deb",
+  "active": true,
+  "versionId": "2ae44c18-d516-4efc-9347-cfd7c2dcc6a8",
   "nodes": [
     {
       "id": "2d13dfdc-d933-47bd-ab5f-40d40287bea4",
@@ -294,7 +294,7 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "// Separa as linhas por tabela e monta lotes de até 500 pro upsert no PostgREST.\nconst base = 'https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/';\nconst destinos = {\n  m: base + 'unnichat_automacoes_metricas?on_conflict=automacao_id,node_id,coletado_em',\n  n: base + 'unnichat_automacoes_nodes?on_conflict=automacao_id,node_id'\n};\nconst grupos = { m: [], n: [] };\nfor (const i of $input.all()) { const { _tabela, ...row } = i.json; if (grupos[_tabela]) grupos[_tabela].push(row); }\nconst out = [];\nfor (const k of Object.keys(grupos)) for (let x = 0; x < grupos[k].length; x += 500) out.push({ json: { url: destinos[k], linhas: grupos[k].length, body: grupos[k].slice(x, x + 500) } });\nreturn out;"
+        "jsCode": "// Separa as linhas por tabela e monta lotes de até 500 pro upsert no PostgREST.\n// t = templates da conta (já baixados em 'Listar templates', sem chamada extra).\nconst base = 'https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/';\nconst destinos = {\n  m: base + 'unnichat_automacoes_metricas?on_conflict=automacao_id,node_id,coletado_em',\n  n: base + 'unnichat_automacoes_nodes?on_conflict=automacao_id,node_id',\n  t: base + 'unnichat_templates?on_conflict=template_id'\n};\nconst grupos = { m: [], n: [], t: [] };\nfor (const i of $input.all()) { const { _tabela, ...row } = i.json; if (grupos[_tabela]) grupos[_tabela].push(row); }\nconst lista = (b) => Array.isArray(b) ? b : (b?.data ?? b?.items ?? b?.templates ?? []);\nconst agora = DateTime.now().toISO();\nconst vistos = new Set();\nfor (const t of $('Listar templates').all().flatMap(i => lista(i.json))) {\n  if (!t?.id || !t?.name || vistos.has(String(t.id))) continue;\n  vistos.add(String(t.id));\n  grupos.t.push({ template_id: String(t.id), nome: t.name, categoria: t.category ?? null, idioma: t.language ?? null, status: t.status ?? null, raw_payload: t, visto_em: agora });\n}\nconst out = [];\nfor (const k of Object.keys(grupos)) for (let x = 0; x < grupos[k].length; x += 500) out.push({ json: { url: destinos[k], linhas: grupos[k].length, body: grupos[k].slice(x, x + 500) } });\nreturn out;"
       }
     },
     {
@@ -431,7 +431,39 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "// Monta as linhas de métricas (foto da hora) e de nodes (dimensão) de UMA automação.\n// Contrato: docs/contrato-dados.md (unnichat_automacoes_metricas / unnichat_automacoes_nodes).\n// A API REST responde { success, data: {...} }.\nconst cfg = $('Config').first().json;\nconst a = $('Loop automações').first().json;\nconst mResp = $('Métricas').first().json;\nconst m = mResp?.data ?? mResp?.metrics ?? mResp ?? {};\nconst dResp = $('Detalhe').first().json;\nconst det = dResp?.data ?? dResp?.automation ?? dResp ?? {};\nconst coletadoEm = DateTime.now().setZone(cfg.fuso).startOf('hour').toISO();\nconst agora = DateTime.now().toISO();\nconst int = (v) => { const n = Number(v); return v === null || v === undefined || v === '' || !Number.isFinite(n) ? null : Math.round(n); };\n\n// templates: nome -> categoria (MARKETING / UTILITY / AUTHENTICATION)\nconst lista = (b) => Array.isArray(b) ? b : (b?.data ?? b?.items ?? b?.templates ?? []);\nconst cat = {};\nfor (const t of $('Listar templates').all().flatMap(i => lista(i.json))) if (t?.name) cat[String(t.name).trim().toLowerCase()] = t.category ?? null;\n\n// nodes do detalhe, por id (o nome do template fica no text do node)\nconst detNodes = det.nodes ?? [];\nconst porId = {};\nfor (const n of (Array.isArray(detNodes) ? detNodes : [])) { const id = n?.id ?? n?.nodeId; if (id) porId[id] = n; }\nconst nomeTemplate = (n) => {\n  if (!n) return null;\n  for (const v of [n.text, n.data?.template?.name, n.data?.templateName, n.template?.name, n.templateName]) {\n    if (typeof v === 'string' && v.trim()) return v.trim();\n  }\n  return null;\n};\n\nconst base = { automacao_id: a.automacao_id, automacao_nome: m.name ?? a.automacao_nome, pasta: a.pasta };\nconst out = [];\nconst tot = m.totals?.messages ?? {};\nout.push({ _tabela: 'm', coletado_em: coletadoEm, ...base, node_id: '_total', automacao_ativa: a.automacao_ativa,\n  node_tipo: '_total', message_type: null, conexao: cfg.conexao,\n  enviados: int(tot.sent), entregues: int(tot.delivered), lidos: int(tot.read), falhas: int(tot.failed), raw_payload: mResp });\n\nfor (const n of (m.nodes ?? [])) {\n  if (!n?.messages) continue;\n  const mt = n.messageType ?? null;\n  out.push({ _tabela: 'm', coletado_em: coletadoEm, ...base, node_id: n.nodeId, automacao_ativa: a.automacao_ativa,\n    node_tipo: n.type ?? null, message_type: mt, conexao: cfg.conexao,\n    enviados: int(n.messages.sent), entregues: int(n.messages.delivered), lidos: int(n.messages.read), falhas: int(n.messages.failed), raw_payload: n });\n  const ehTemplate = mt === 'send_template';\n  const tNome = ehTemplate ? nomeTemplate(porId[n.nodeId]) : null;\n  const tCat = tNome ? (cat[tNome.toLowerCase()] ?? null) : null;\n  out.push({ _tabela: 'n', ...base, node_id: n.nodeId, node_tipo: n.type ?? null, message_type: mt,\n    template_nome: tNome, template_categoria: tCat, categoria_cobranca: ehTemplate ? tCat : 'SERVICE',\n    raw_payload: { metricas: n, detalhe: porId[n.nodeId] ?? null }, visto_em: agora });\n}\nreturn out.map(j => ({ json: j }));"
+        "jsCode": "// Monta as linhas de métricas (foto da hora) e de nodes (dimensão) de UMA automação.\n// Contrato: docs/contrato-dados.md (unnichat_automacoes_metricas / unnichat_automacoes_nodes).\n// A API REST responde { success, data: {...} }.\n// Automação que nunca mandou mensagem não grava foto (zerada fica fora).\n// O detalhe só é buscado quando há node de template; aqui só vale se for desta automação.\nconst cfg = $('Config').first().json;\nconst a = $('Loop automações').first().json;\nconst mResp = $('Métricas').first().json;\nconst m = mResp?.data ?? mResp?.metrics ?? mResp ?? {};\nconst int = (v) => { const n = Number(v); return v === null || v === undefined || v === '' || !Number.isFinite(n) ? null : Math.round(n); };\nconst tot = m.totals?.messages ?? {};\nif (!(int(tot.sent) > 0)) return [{ json: { _tabela: 'zerada', automacao_id: a.automacao_id } }];\n\nlet det = {};\ntry { const d = $('Detalhe').first().json; const dd = d?.data ?? d?.automation ?? d ?? {}; if (dd.id === a.automacao_id) det = dd; } catch (e) { det = {}; }\nconst coletadoEm = DateTime.now().setZone(cfg.fuso).startOf('hour').toISO();\nconst agora = DateTime.now().toISO();\n\n// templates: nome -> categoria (MARKETING / UTILITY / AUTHENTICATION)\nconst lista = (b) => Array.isArray(b) ? b : (b?.data ?? b?.items ?? b?.templates ?? []);\nconst cat = {};\nfor (const t of $('Listar templates').all().flatMap(i => lista(i.json))) if (t?.name) cat[String(t.name).trim().toLowerCase()] = t.category ?? null;\n\n// nodes do detalhe, por id (o nome do template fica no text do node)\nconst porId = {};\nfor (const n of (Array.isArray(det.nodes) ? det.nodes : [])) { const id = n?.id ?? n?.nodeId; if (id) porId[id] = n; }\nconst nomeTemplate = (n) => {\n  if (!n) return null;\n  for (const v of [n.text, n.data?.template?.name, n.data?.templateName, n.template?.name, n.templateName]) {\n    if (typeof v === 'string' && v.trim()) return v.trim();\n  }\n  return null;\n};\n\nconst base = { automacao_id: a.automacao_id, automacao_nome: m.name ?? a.automacao_nome, pasta: a.pasta };\nconst out = [];\nout.push({ _tabela: 'm', coletado_em: coletadoEm, ...base, node_id: '_total', automacao_ativa: a.automacao_ativa,\n  node_tipo: '_total', message_type: null, conexao: cfg.conexao,\n  enviados: int(tot.sent), entregues: int(tot.delivered), lidos: int(tot.read), falhas: int(tot.failed), raw_payload: mResp });\n\nfor (const n of (m.nodes ?? [])) {\n  if (!n?.messages) continue;\n  const mt = n.messageType ?? null;\n  out.push({ _tabela: 'm', coletado_em: coletadoEm, ...base, node_id: n.nodeId, automacao_ativa: a.automacao_ativa,\n    node_tipo: n.type ?? null, message_type: mt, conexao: cfg.conexao,\n    enviados: int(n.messages.sent), entregues: int(n.messages.delivered), lidos: int(n.messages.read), falhas: int(n.messages.failed), raw_payload: n });\n  const ehTemplate = mt === 'send_template';\n  const tNome = ehTemplate ? nomeTemplate(porId[n.nodeId]) : null;\n  const tCat = tNome ? (cat[tNome.toLowerCase()] ?? null) : null;\n  out.push({ _tabela: 'n', ...base, node_id: n.nodeId, node_tipo: n.type ?? null, message_type: mt,\n    template_nome: tNome, template_categoria: tCat, categoria_cobranca: ehTemplate ? tCat : 'SERVICE',\n    raw_payload: { metricas: n, detalhe: porId[n.nodeId] ?? null }, visto_em: agora });\n}\nreturn out.map(j => ({ json: j }));"
+      }
+    },
+    {
+      "name": "Tem template?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2464,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "tem-tpl",
+              "leftValue": "={{ (($json.data ?? $json.metrics ?? $json).nodes ?? []).some(n => n.messageType === 'send_template') }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       }
     }
   ],
@@ -568,7 +600,7 @@
       "main": [
         [
           {
-            "node": "Espera detalhe",
+            "node": "Tem template?",
             "type": "main",
             "index": 0
           }
@@ -602,6 +634,24 @@
         [
           {
             "node": "Loop automações",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem template?": {
+      "main": [
+        [
+          {
+            "node": "Espera detalhe",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Linhas da automação",
             "type": "main",
             "index": 0
           }
