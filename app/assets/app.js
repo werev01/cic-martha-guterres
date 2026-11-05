@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-05a';
-  var MUDANCAS = 'Home (só comercial), Meta do mês e Minha página com os números do mês (RPCs da fase 1); admin escolhe o vendedor na Minha página';
+  var BUILD = '2026-11-05b';
+  var MUDANCAS = 'Relatórios (lista de vendas) e Reembolsos, com filtro de período e, pro admin, de vendedor';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -17,11 +17,11 @@
     discadora:     { rotulo: 'Discadora',             desc: 'Ligações e produtividade na Callix.' },
     desempenho:    { rotulo: 'Desempenho individual', desc: 'Resultado por vendedor.' },
     minhapagina:   { rotulo: 'Minha página',          desc: 'Seus números no mês.' },
-    relatorios:    { rotulo: 'Relatórios',            desc: 'Relatórios da operação.' },
+    relatorios:    { rotulo: 'Relatórios',            desc: 'Lista de vendas pra conferência.' },
     taxapassagem:  { rotulo: 'Taxa de passagem',      desc: 'Conversão entre as etapas do CRM.' },
     motivosperda:  { rotulo: 'Motivos de perda',      desc: 'Por que os leads saem do funil.' },
     ciclovenda:    { rotulo: 'Ciclo de vendas',       desc: 'Tempo do primeiro contato até a venda.' },
-    reembolsos:    { rotulo: 'Reembolsos',            desc: 'Reembolsos e cancelamentos.' }
+    reembolsos:    { rotulo: 'Reembolsos',            desc: 'Reembolsos efetivados e o que foi abatido.' }
   };
   // Símbolo WeRev (dois V espelhados, ampulheta). Fonte: assets/marca/simbolo.svg
   var SIMBOLO = 'M590 0 L0 0 L168 460 L4 920 L595 920 L425 460 Z M550 16 L392 460 L555 904 L106 904 L263 460 L100 16 Z';
@@ -477,7 +477,147 @@
     });
   }
 
-  var RENDER = { home: telaHome, metadomes: telaMeta, minhapagina: telaMinha };
+  // ---------- Filtro de período e vendedor (Relatórios e Reembolsos) ----------
+  var SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  var filtro = null;           // { ini, fim, vend } compartilhado entre as duas telas
+  var vendedoresCache = null;  // só admin
+
+  function diaSemana(d) { return SEMANA[new Date(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10))).getDay()]; }
+  function iniciais(nome) {
+    var p = String(nome || '').trim().split(/\s+/);
+    return ((p[0] || '').charAt(0) + (p.length > 1 ? p[p.length - 1].charAt(0) : '')).toUpperCase();
+  }
+  function pessoa(nome) {
+    if (!nome) return '<span class="pessoa pessoa-org"><i>OR</i>Orgânico</span>';
+    return '<span class="pessoa"><i>' + esc(iniciais(nome)) + '</i>' + esc(nome) + '</span>';
+  }
+  // +5531999990000 -> +55 31 99999-0000 (outros países ficam como vieram)
+  function fone(t) {
+    var m = /^\+55(\d{2})(\d{4,5})(\d{4})$/.exec(t || '');
+    return m ? '+55 ' + m[1] + ' ' + m[2] + '-' + m[3] : (t || '–');
+  }
+  function plural(n, um, varios) { return num(n) + ' ' + (Number(n) === 1 ? um : varios); }
+
+  // Monta a barra de filtro e chama recarregar() quando muda
+  function barraFiltro(alvo, recarregar) {
+    if (!filtro) filtro = { ini: mesAtual(), fim: hojeSP(), vend: '' };
+    var admin = perfil.papel === 'admin';
+    var opcoes = admin ? '<label class="seletor"><span>Vendedor</span><select id="f-vend"><option value="">Todos</option>' +
+      '<option value="_org"' + (filtro.vend === '_org' ? ' selected' : '') + '>Orgânico</option>' +
+      (vendedoresCache || []).map(function (v) {
+        return '<option value="' + esc(v.utm_slug) + '"' + (filtro.vend === v.utm_slug ? ' selected' : '') + '>' + esc(v.nome) + '</option>';
+      }).join('') + '</select></label>' : '';
+    alvo.innerHTML = '<div class="filtro">' +
+      '<label class="seletor"><span>De</span><input type="date" id="f-ini" value="' + filtro.ini + '" max="' + hojeSP() + '"></label>' +
+      '<label class="seletor"><span>Até</span><input type="date" id="f-fim" value="' + filtro.fim + '" max="' + hojeSP() + '"></label>' +
+      opcoes + '</div><div id="f-corpo"></div>';
+    var muda = function () {
+      var i = $('f-ini').value, f = $('f-fim').value;
+      if (!i || !f) return;
+      if (i > f) { var t = i; i = f; f = t; }
+      filtro.ini = i; filtro.fim = f;
+      if ($('f-vend')) filtro.vend = $('f-vend').value;
+      recarregar(++pedido);
+    };
+    ['f-ini', 'f-fim', 'f-vend'].forEach(function (k) { if ($(k)) $(k).addEventListener('change', muda); });
+    return $('f-corpo');
+  }
+  function aplicaVend(linhas) {
+    if (!filtro.vend) return linhas;
+    return linhas.filter(function (l) { return filtro.vend === '_org' ? !l.vendedor_slug : l.vendedor_slug === filtro.vend; });
+  }
+  function comVendedores(feito) {
+    if (perfil.papel !== 'admin' || vendedoresCache) return feito();
+    sb.from('vendedores').select('utm_slug,nome').eq('ativo', true).order('nome').then(function (r) {
+      vendedoresCache = r.data || [];
+      feito();
+    });
+  }
+  function periodoTxt() { return ddmm(filtro.ini) + ' a ' + ddmm(filtro.fim); }
+
+  // ---------- Relatórios: lista de vendas ----------
+  function telaRelatorios(alvo, id) {
+    carregando(alvo);
+    comVendedores(function () {
+      if (id !== pedido) return;
+      var corpo = barraFiltro(alvo, carregar);
+      carregar(id);
+      function carregar(idc) {
+        corpo.innerHTML = '<p class="painel-msg">Carregando...</p>';
+        sb.rpc('cic_lista_vendas', { p_inicio: filtro.ini, p_fim: filtro.fim }).then(function (r) {
+          if (idc !== pedido) return;
+          if (r.error) return falhou(corpo, r.error);
+          var linhas = aplicaVend(r.data || []);
+          var total = linhas.reduce(function (a, l) { return a + Number(l.liquido); }, 0);
+          var nReemb = linhas.filter(function (l) { return l.reembolsada; }).length;
+          var cab = '<header class="lista-topo"><div><h2>Lista de vendas</h2><p>' + plural(linhas.length, 'venda', 'vendas') + ' em ' + periodoTxt() +
+            (nReemb ? ' · ' + plural(nReemb, 'reembolsada', 'reembolsadas') : '') + '</p></div>' +
+            '<div class="lista-total"><span>Total líquido</span><strong>' + rs(total) + '</strong></div></header>';
+          if (!linhas.length) { corpo.innerHTML = '<section class="bloco">' + cab + '<p class="painel-msg">Nenhuma venda no período.</p></section>'; return; }
+          var rows = linhas.map(function (l) {
+            var valor = l.reembolsada
+              ? '<span class="valor-riscado">' + rs(l.liquido) + '</span><span class="tag tag-abaixo" title="Reembolsada em ' + (l.reembolso_data ? ddmm(l.reembolso_data) : '') + '">Reembolsada</span>'
+              : '<span class="valor-ok">' + rs(l.liquido) + '</span>';
+            return '<tr><td><strong>' + ddmm(l.data) + '</strong> <span class="fraco">' + diaSemana(l.data) + '</span></td>' +
+              '<td class="fraco">' + esc(String(l.hora || '').slice(0, 5)) + '</td>' +
+              '<td class="quebra">' + esc(l.cliente || '–') + '</td>' +
+              '<td class="fraco">' + esc(fone(l.telefone)) + '</td>' +
+              '<td>' + pessoa(l.vendedor_nome) + '</td>' +
+              '<td class="quebra">' + esc(l.produto || '–') + (l.oferta ? '<div class="fraco">' + esc(l.oferta) + '</div>' : '') + '</td>' +
+              '<td class="n">' + valor + '</td></tr>';
+          }).join('');
+          corpo.innerHTML = '<section class="bloco">' + cab + '<div class="tabela-rolagem"><table class="tabela lista">' +
+            '<thead><tr><th>Data</th><th>Hora</th><th>Cliente</th><th>Telefone</th><th>Vendedor</th><th>Produto</th><th class="n">Valor</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody></table></div></section>';
+        });
+      }
+    });
+  }
+
+  // ---------- Reembolsos ----------
+  function telaReembolsos(alvo, id) {
+    carregando(alvo);
+    comVendedores(function () {
+      if (id !== pedido) return;
+      var corpo = barraFiltro(alvo, carregar);
+      carregar(id);
+      function carregar(idc) {
+        corpo.innerHTML = '<p class="painel-msg">Carregando...</p>';
+        var par = { p_inicio: filtro.ini, p_fim: filtro.fim };
+        Promise.all([sb.rpc('cic_lista_reembolsos', par), sb.rpc('cic_lista_vendas', par)]).then(function (rr) {
+          if (idc !== pedido) return;
+          var e = rr[0].error || rr[1].error;
+          if (e) return falhou(corpo, e);
+          var reemb = aplicaVend(rr[0].data || []), vendas = aplicaVend(rr[1].data || []);
+          var abatido = reemb.reduce(function (a, l) { return a + Number(l.liquido); }, 0);
+          var vendido = vendas.reduce(function (a, l) { return a + Number(l.liquido); }, 0);
+          var h = '<div class="kpis">' +
+            kpi('Reembolsos', num(reemb.length), periodoTxt(), true) +
+            kpi('Líquido abatido', rs(abatido), 'no período') +
+            kpi('Sobre o vendido', vendido > 0 ? pct(abatido / vendido) : '–', rs(vendido) + ' vendidos no período') + '</div>';
+          if (!reemb.length) {
+            corpo.innerHTML = h + '<section class="bloco"><p class="painel-msg vazio">Nenhum reembolso em ' + periodoTxt() + '.</p></section>';
+            return;
+          }
+          var rows = reemb.map(function (l) {
+            return '<tr><td><strong>' + ddmm(l.reembolso_data) + '</strong> <span class="fraco">' + diaSemana(l.reembolso_data) + '</span></td>' +
+              '<td class="fraco">' + ddmm(l.venda_data) + '</td>' +
+              '<td class="quebra">' + esc(l.cliente || '–') + '</td>' +
+              '<td class="fraco">' + esc(fone(l.telefone)) + '</td>' +
+              '<td>' + pessoa(l.vendedor_nome) + '</td>' +
+              '<td class="quebra">' + esc(l.produto || '–') + '</td>' +
+              '<td class="n"><span class="valor-abatido">− ' + rs(l.liquido) + '</span></td></tr>';
+          }).join('');
+          corpo.innerHTML = h + '<section class="bloco"><header class="lista-topo"><div><h2>Lista de reembolsos</h2><p>' +
+            plural(reemb.length, 'reembolso', 'reembolsos') + ' em ' + periodoTxt() + '</p></div></header>' +
+            '<div class="tabela-rolagem"><table class="tabela lista"><thead><tr><th>Reembolso</th><th>Venda</th><th>Cliente</th><th>Telefone</th>' +
+            '<th>Vendedor</th><th>Produto</th><th class="n">Valor abatido</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
+        });
+      }
+    });
+  }
+
+  var RENDER = { home: telaHome, metadomes: telaMeta, minhapagina: telaMinha, relatorios: telaRelatorios, reembolsos: telaReembolsos };
 
   // ---------- Minha página: links de venda ----------
   function carregarLinks(soDe) {
