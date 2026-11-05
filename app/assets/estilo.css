@@ -270,6 +270,30 @@ input { font: inherit; }
 .tabela tbody tr:last-child td { border-bottom: 0; }
 
 
+/* Filtro e listas (Relatórios, Reembolsos) */
+.filtro { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin-bottom: 20px; }
+.seletor input[type="date"] { font: inherit; padding: 7px 10px; border: 1px solid var(--grey); border-radius: var(--raio); background: var(--branco); color: var(--texto); }
+.seletor input[type="date"]:focus { outline: 2px solid var(--whiskey); outline-offset: -1px; }
+.filtro + div > .kpis { margin-bottom: 0; }
+.lista-topo { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.lista-topo h2 { font-family: var(--f-titulo); font-weight: 400; font-size: 20px; margin: 0; }
+.lista-topo p { margin: 4px 0 0; color: var(--texto-2); font-size: 14px; }
+.lista-total { text-align: right; }
+.lista-total span { display: block; font-size: 12px; color: var(--texto-2); }
+.lista-total strong { font-size: 22px; font-weight: 500; color: var(--ok); }
+.tabela.lista th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.tabela.lista td { vertical-align: middle; }
+.fraco { color: var(--texto-2); font-size: 12.5px; }
+.tabela.lista td.quebra { white-space: normal; min-width: 140px; }
+.tabela.lista td.n { white-space: nowrap; }
+.tabela.lista th, .tabela.lista td { padding-left: 8px; padding-right: 8px; }
+.pessoa { display: inline-flex; align-items: center; gap: 8px; }
+.pessoa i { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: var(--linen); font-style: normal; font-size: 10.5px; font-weight: 500; letter-spacing: .03em; flex-shrink: 0; }
+.valor-ok { color: var(--ok); font-weight: 500; }
+.valor-riscado { color: var(--texto-2); text-decoration: line-through; margin-right: 8px; }
+.valor-abatido { color: var(--erro); font-weight: 500; }
+.painel-msg.vazio { text-align: center; margin: 8px 0; }
+
 .btn-menu { display: none; }
 
 /* Celular: menu vira gaveta */
