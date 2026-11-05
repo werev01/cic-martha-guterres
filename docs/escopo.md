@@ -145,6 +145,24 @@ Regras:
   (hoje incluso), projetado até o fim do mês. Falta por dia útil usa os dias úteis
   depois de hoje.
 
+## Mensageria: custo de WhatsApp (decidido em 05/11/2026)
+
+- Escopo comercial: broadcasts com nome `COMERCIAL...`, automações das pastas coletadas
+  (CHECKOUT, BANCO DE EVENTOS e GERAL, todas dentro da pasta comercial) e vendedores do
+  cadastro. Conexão 0209.
+- Custo é ESTIMATIVA pelo rate card (`whatsapp_preco`, preço vigente na data); a fatura
+  do Unnichat é a referência final. A Meta cobra na entrega.
+- Template: entregues x preço da categoria (broadcast pelo `template_id`, automação pelo
+  node, vendedor por `tpl_vendedor_utl`/`_mkt`).
+- Serviço (mensagem que não é template): R$ 0,035 por mensagem. Vendedor =
+  `msg_vendedor` + `msg_agendada`; broadcast = respostas `srv_entregues`; automação =
+  nodes sem template. Franquia de 1.000 por número por mês, desconto no total do mês
+  (não rateado), aplicada às primeiras 1.000 do mês, dia a dia.
+- Automações: volume do período = última foto no período - última foto antes dele; sem
+  foto anterior, conta o acumulado da primeira foto.
+- Copy: contatos com o `codigo_copy` no CRM e quantos compraram depois (venda paga na
+  Hubla, casada pelo telefone). Mede só quem entrou no CRM, não todos que receberam.
+
 ## Comissão do vendedor (decidido em 04/11/2026)
 
 Base: faturamento LÍQUIDO individual no mês (vendedor = `utm_source`). Todos os
@@ -178,6 +196,7 @@ produtos contam igual pra meta e comissão (Ultra Black e Meal Prep, decidido em
 
 - [ ] Regra definitiva do valor TMB (hoje 50%). Cobrar o Nirla.
 - [ ] Criar os usuários de Matta, Godoy e dos 4 vendedores (perfis já cadastrados).
+- [ ] Mensageria: conferir o custo estimado (`cic_mensageria`) contra a primeira fatura do Unnichat.
 
 ### Pendente de teste e validação (n8n e Unnichat, criados às pressas em 04/11)
 - [ ] Token errado nos webhooks: confirmar o status real (doc assume 403) com curl.

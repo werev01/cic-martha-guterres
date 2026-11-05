@@ -33,6 +33,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261105_0013_reembolso_por_status.sql` | trava libera paid -> refunded/chargeback (só status e data); venda válida = foi paga um dia; reembolso também pelo status da venda; `cic_home` só com o comercial |
 | `20261105_0014_listas_vendas_reembolsos.sql` | RPCs `cic_lista_vendas` e `cic_lista_reembolsos` (telas Relatórios e Reembolsos, só comercial) e função interna `cic_fone` |
 | `20261105_0015_gestao.sql` | telas de gestão: `cic_desempenho`, `cic_taxa_passagem`, `cic_motivos_perda`, `cic_ciclo_venda` (só admin); internas `cic_negocios`, `cic_fone_chave`; motivo "[2] Já é cliente" sem o CMP; Daniel Godoy vendedor (segue admin) |
+| `20261105_0016_mensageria.sql` | `cic_mensageria` (só admin, custo estimado de WhatsApp do comercial) e internas `cic_preco_whatsapp`, `cic_servico_dia` |
 
 ## Camada tratada (RPCs do app)
 
@@ -53,12 +54,14 @@ Regras em `escopo.md` (CIC fase 1). Todas `security definer`, `stable`,
 | `cic_motivos_perda(p_inicio, p_fim, p_vendedor)` | só admin | linhas por tipo (comercial/cs), grupo, motivo, vendedor e etapa da perda, com quantidade |
 | `cic_ciclo_venda(p_inicio, p_fim, p_vendedor)` | só admin | por tipo (venda/perda) e vendedor, mais a linha `_time`: casos, mediana e média em horas, faixas (até 1 dia, 1 a 3, 3 a 7, mais de 7) e `sem_historico` (desfecho a menos de 6 min da entrada, fora da conta) |
 
+| `cic_mensageria(p_inicio, p_fim)` | só admin | jsonb: `resumo` (entregues, lidos, falhas, taxas, custo total com franquia, custo por origem, serviço bruto, franquia, custo por venda), `por_categoria`, `broadcasts`, `automacoes`, `vendedores`, `copy`, `preco` (fonte e vigência) |
+
 Regras das telas de gestão em `contrato-dados.md` (unnichat_eventos) e `escopo.md`.
 
 Só comercial em todas as RPCs, inclusive pro admin; orgânico fica no banco pra lista
 e análise (05/11/2026).
 
-Internas, sem acesso do app: `cic_negocios`, `cic_fone_chave`, `cic_fone`, `cic_vendas_validas`, `cic_reembolsos_validos`,
+Internas, sem acesso do app: `cic_preco_whatsapp`, `cic_servico_dia`, `cic_negocios`, `cic_fone_chave`, `cic_fone`, `cic_vendas_validas`, `cic_reembolsos_validos`,
 `cic_contatos_em_contato` (todas por período `p_inicio, p_fim`).
 
 Trava (`trg_hubla_vendas_trava_paga`): linha `paid` só aceita virar `refunded`,
