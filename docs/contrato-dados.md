@@ -464,10 +464,59 @@ não por posição. Broadcast com mais de um template: `template_id` guarda o pr
 custo exato por template sai do `raw_payload`.
 
 ### `unnichat_conversas_dia` (coleta diária, 23h40)
-`dia` **obr.**, `contact_id` **obr.**, `telefone`, `vendedor`, contadores
-`msg_vendedor`, `msg_agendada`, `tpl_vendedor_utl`, `tpl_vendedor_mkt`,
-`msg_automacao`, `tpl_automacao`, `msg_lead`, `msg_sistema` (int), `raw_payload`
-**obr.**
+Workflow `[MARTHA] Unnichat · Conversas do dia`. Mensagens do dia por contato,
+separadas por quem enviou: esforço do vendedor e custo de serviço humano.
+
+**Universo do dia** (sem repetir):
+- contatos com negócio aberto nas 5 colunas do `[COMERCIAL] Pipeline - Disparo`
+  (`GET /crm/pipelines/{id}/deals/column/{columnId}`, paginado);
+- contatos com evento de CRM no dia em `unnichat_eventos` (`raw_payload->data->>id`),
+  pra pegar quem ganhou ou perdeu e saiu das colunas.
+
+Só o universo comercial: quem recebeu broadcast mas não está no pipeline nem teve evento
+não entra. Por isso `tpl_automacao` aqui é menor que o dos broadcasts. Custo de bot e de
+broadcast vem das coletas de automações e broadcasts (uma fonte por tipo).
+
+**Mensagens:** `GET /contact/{id}/messages?limit=50`, paginando com `before`
+(`metadata.nextBefore`) até passar do início do dia. Resposta REST:
+`{ success, data: [ { id, date, type, origin?, senderBy, message?, templateId?,
+templateCategory? } ], metadata: { nextBefore } }`, da mais antiga pra mais nova.
+Conta só as do dia em America/Sao_Paulo. O formato do MCP é diferente (`sender`,
+`text`, sem categoria): o contrato vale pelo REST.
+
+**Classificação** (aprovada em 05/11/2026):
+
+| Coluna | Regra |
+|---|---|
+| `msg_lead` | `senderBy = contact` |
+| `msg_sistema` | `senderBy = platform` (avisos, atribuição de conversa) |
+| `tpl_automacao` | `senderBy = user`, `origin = automation`, `type = template` |
+| `msg_automacao` | `senderBy = user`, `origin = automation`, demais tipos; origem desconhecida também (vai pro `raw_payload` pra revisar) |
+| `msg_agendada` | `senderBy = user`, `origin = schedule` |
+| `msg_vendedor` | `senderBy = user`, sem `origin`, tipo diferente de template |
+| `tpl_vendedor_mkt` | `senderBy = user`, sem `origin`, `type = template`, `templateCategory = MARKETING` |
+| `tpl_vendedor_utl` | idem, `UTILITY`, `AUTHENTICATION` (mesmo preço) ou sem categoria |
+
+Broadcast e automação chegam iguais (`origin = automation`) e não dá pra separar aqui;
+por isso `*_automacao` nesta tabela serve só pra conferência.
+
+**Vendedor:** nome do prefixo `[Nome]` das mensagens de vendedor do dia (o que mais
+aparece). Sem prefixo no dia, `GET /contact/{id}/assign` (`data.name`, atendente de
+agora). `raw_payload.vendedor_fonte` diz qual foi (`prefixo` ou `assign`).
+
+**Grava** só contato com pelo menos 1 mensagem no dia. `raw_payload`: contagens, ids
+das mensagens por coluna, templates por categoria (vendedor e automação), fonte do
+vendedor, origens desconhecidas e se o contato veio do pipeline ou de evento. Sem texto
+de mensagem. O n8n não guarda dados de execução com sucesso deste workflow (teriam o
+texto das mensagens); só as com erro.
+
+**Reprocessamento:** `POST /webhook/martha-guterres/unnichat/conversas-dia/reprocessar?dia=YYYY-MM-DD`
+com header `x-cic-token` (credencial `[MARTHA] Webhook token`). Upsert por `dia,
+contact_id`: reprocessar regrava sem duplicar. Limitação: dia antigo usa o pipeline de
+hoje (mais os eventos daquele dia), e o fallback `/assign` traz o atendente de agora.
+
+Ritmo: 0,3 s entre chamadas (limite da API 300/min). Cerca de 280 contatos levam de 7 a
+9 min.
 
 ## Callix (conta WeRev compartilhada)
 

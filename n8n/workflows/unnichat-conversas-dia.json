@@ -1,0 +1,608 @@
+{
+  "id": "H2V0C9PwuzbU8OHu",
+  "name": "[MARTHA] Unnichat · Conversas do dia",
+  "description": "23h40: mensagens do dia por contato (pipeline de disparo + contatos com evento), separadas por quem enviou. Reprocessamento por POST com ?dia=YYYY-MM-DD. Grava em unnichat_conversas_dia.",
+  "active": true,
+  "versionId": "cf3de8be-c9d3-4501-95e1-e742ae49e63e",
+  "nodes": [
+    {
+      "name": "Todo dia 23h40",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 40 23 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Reprocessar dia",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "martha-guterres/unnichat/conversas-dia/reprocessar",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Pj1OSK5PZLP63InH",
+          "name": "[MARTHA] Webhook token"
+        }
+      }
+    },
+    {
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "dia_param",
+              "value": "={{ $json.query?.dia ?? $json.body?.dia ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "c2",
+              "name": "fuso",
+              "value": "America/Sao_Paulo",
+              "type": "string"
+            },
+            {
+              "id": "c3",
+              "name": "base_url",
+              "value": "https://unnichat.com.br/api",
+              "type": "string"
+            },
+            {
+              "id": "c4",
+              "name": "pipeline_id",
+              "value": "I12FxoheilOqXHQhL2gM",
+              "type": "string"
+            },
+            {
+              "id": "c5",
+              "name": "colunas",
+              "value": "={{ [\"hQQBkcMxVsmjcsiXNdYi\",\"PrA3tNHP9q55TPJBXHTd\",\"kzRbSITv2Js7m322q851\",\"3g5zhUYL7ePG6Jw4Mfnk\",\"0C2JGMOMGdID882vkVCv\"] }}",
+              "type": "array"
+            },
+            {
+              "id": "c6",
+              "name": "intervalo_s",
+              "value": 0.3,
+              "type": "number"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Preparar dia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Define o dia (parâmetro do reprocessamento ou hoje em SP) e as colunas do pipeline a listar.\nconst cfg = $('Config').first().json;\nconst p = String(cfg.dia_param || '').trim();\nconst d = p ? DateTime.fromISO(p, { zone: cfg.fuso }) : DateTime.now().setZone(cfg.fuso);\nif (!d.isValid || (p && !/^\\d{4}-\\d{2}-\\d{2}$/.test(p))) throw new Error('Conversas do dia: parâmetro dia inválido (use YYYY-MM-DD): ' + p);\nconst inicio = d.startOf('day');\nconst base = { dia: inicio.toFormat('yyyy-MM-dd'), inicio_utc: inicio.toUTC().toISO(), fim_utc: inicio.plus({ days: 1 }).toUTC().toISO() };\nreturn (cfg.colunas || []).map(c => ({ json: { ...base, column_id: c } }));"
+      }
+    },
+    {
+      "name": "Listar negócios",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DLPlheJ00sK7zJND",
+          "name": "[MARTHA] Unnichat"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.base_url }}/crm/pipelines/{{ $('Config').first().json.pipeline_id }}/deals/column/{{ $json.column_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "perPage",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "page",
+                    "value": "={{ $pageCount + 1 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !($response.body?.metadata?.hasNext ?? $response.body?.pagination?.hasNext) }}",
+              "limitPagesFetched": true,
+              "maxRequests": 50,
+              "requestInterval": 300
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Contatos com evento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "supabaseApi": {
+          "id": "lE0HnMSq3MSGveqV",
+          "name": "[MARTHA] Supabase service role"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/unnichat_eventos",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "telefone,contact_id:raw_payload->data->>id"
+            },
+            {
+              "name": "and",
+              "value": "={{ \"(event_ts.gte.\" + $('Preparar dia').first().json.inicio_utc + \",event_ts.lt.\" + $('Preparar dia').first().json.fim_utc + \")\" }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Universo do dia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Junta, sem repetir, os contatos com negócio aberto nas 5 colunas e os que tiveram evento de CRM no dia.\nconst lista = (b) => Array.isArray(b) ? b : (b?.data ?? b?.items ?? []);\nconst mapa = new Map();\nfor (const i of $('Listar negócios').all()) for (const d of lista(i.json)) {\n  if (d?.contactId && !mapa.has(d.contactId)) mapa.set(d.contactId, { contact_id: d.contactId, telefone: d.phoneNumber ?? null, fonte: 'pipeline' });\n}\nfor (const i of $('Contatos com evento').all()) {\n  const c = i.json?.contact_id;\n  if (c && !mapa.has(c)) mapa.set(c, { contact_id: c, telefone: i.json.telefone ?? null, fonte: 'evento' });\n}\nreturn [...mapa.values()].map(j => ({ json: j }));"
+      }
+    },
+    {
+      "name": "Loop contatos",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "name": "Espera",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $('Config').first().json.intervalo_s }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "name": "Mensagens",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DLPlheJ00sK7zJND",
+          "name": "[MARTHA] Unnichat"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.base_url }}/contact/{{ $('Loop contatos').first().json.contact_id }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "before",
+                    "value": "={{ $response.body?.metadata?.nextBefore ?? $response.body?.data?.nextBefore ?? $response.body?.nextBefore }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ (() => { const b = $response.body ?? {}; const ms = Array.isArray(b.data) ? b.data : (b.data?.messages ?? b.messages ?? []); const nb = b.metadata?.nextBefore ?? b.data?.nextBefore ?? b.nextBefore; return !nb || !ms.length || String(ms[0].date) < $('Preparar dia').first().json.inicio_utc; })() }}",
+              "limitPagesFetched": true,
+              "maxRequests": 40,
+              "requestInterval": 300
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Contar do dia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Conta as mensagens do dia do contato por quem enviou (regra aprovada em 05/11/2026).\n// Contrato: docs/contrato-dados.md (unnichat_conversas_dia). Não guarda texto de mensagem.\n// API REST: { success, data: [ { id, date, type, origin?, senderBy, message?, templateCategory? } ], metadata: { nextBefore } }\n// Template do vendedor: MARKETING em tpl_vendedor_mkt; UTILITY, AUTHENTICATION e sem categoria em tpl_vendedor_utl.\nconst dia = $('Preparar dia').first();\nconst c = $('Loop contatos').first().json;\nconst ini = dia.json.inicio_utc, fim = dia.json.fim_utc;\nconst vistos = new Set();\nconst msgs = [];\nfor (const i of $('Mensagens').all()) {\n  const b = i.json ?? {};\n  const lista = Array.isArray(b.data) ? b.data : (b.data?.messages ?? b.messages ?? []);\n  for (const m of lista) { if (m?.id && !vistos.has(m.id)) { vistos.add(m.id); msgs.push(m); } }\n}\nconst cols = ['msg_vendedor', 'msg_agendada', 'tpl_vendedor_utl', 'tpl_vendedor_mkt', 'msg_automacao', 'tpl_automacao', 'msg_lead', 'msg_sistema'];\nconst cont = Object.fromEntries(cols.map(k => [k, 0]));\nconst ids = Object.fromEntries(cols.map(k => [k, []]));\nconst tplCat = { vendedor: {}, automacao: {} };\nconst origensDesconhecidas = {};\nconst nomes = {};\nfor (const m of msgs) {\n  const dt = String(m.date ?? '');\n  if (!(dt >= ini && dt < fim)) continue;\n  const quem = m.senderBy ?? m.sender;\n  const origem = m.origin ?? null;\n  const tpl = m.type === 'template';\n  const cat = m.templateCategory ?? 'SEM_CATEGORIA';\n  let col;\n  if (quem === 'contact') col = 'msg_lead';\n  else if (quem === 'platform') col = 'msg_sistema';\n  else if (quem === 'user') {\n    if (origem === 'automation') col = tpl ? 'tpl_automacao' : 'msg_automacao';\n    else if (origem === 'schedule') col = 'msg_agendada';\n    else if (origem === null || origem === '') col = tpl ? (cat === 'MARKETING' ? 'tpl_vendedor_mkt' : 'tpl_vendedor_utl') : 'msg_vendedor';\n    else { col = 'msg_automacao'; origensDesconhecidas[origem] = (origensDesconhecidas[origem] || 0) + 1; }\n    if (col === 'msg_vendedor' || col === 'msg_agendada') {\n      const r = /^\\[([^\\]]+)\\]/.exec(String(m.message ?? m.text ?? '').trim());\n      if (r) nomes[r[1].trim()] = (nomes[r[1].trim()] || 0) + 1;\n    }\n    if (tpl) { const g = col.startsWith('tpl_vendedor') ? 'vendedor' : 'automacao'; tplCat[g][cat] = (tplCat[g][cat] || 0) + 1; }\n  } else { col = 'msg_sistema'; origensDesconhecidas['senderBy:' + quem] = (origensDesconhecidas['senderBy:' + quem] || 0) + 1; }\n  cont[col]++; ids[col].push(m.id);\n}\nconst total = cols.reduce((s, k) => s + cont[k], 0);\nif (!total) return [{ json: { _skip: true } }];\nconst vendedor = Object.entries(nomes).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;\nreturn [{ json: {\n  dia: dia.json.dia, contact_id: c.contact_id, telefone: c.telefone ?? null, vendedor,\n  ...cont,\n  raw_payload: { contagens: cont, ids, templates_por_categoria: tplCat, vendedor_fonte: vendedor ? 'prefixo' : null, nomes_prefixo: nomes, origens_desconhecidas: origensDesconhecidas, universo: c.fonte, total },\n  _precisa_assign: !vendedor\n} }];"
+      }
+    },
+    {
+      "name": "Sem vendedor no prefixo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "pa",
+              "leftValue": "={{ $json._precisa_assign === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Espera atendente",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $('Config').first().json.intervalo_s }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "name": "Atendente atribuído",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DLPlheJ00sK7zJND",
+          "name": "[MARTHA] Unnichat"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.base_url }}/contact/{{ $('Loop contatos').first().json.contact_id }}/assign",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      }
+    },
+    {
+      "name": "Aplicar atendente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Fallback: sem prefixo [Nome] no dia, vendedor = atendente atribuído agora.\n// API REST: { success, data: { id, name, email } } (data com nulos = sem atendente).\nconst row = { ...$('Contar do dia').first().json };\nconst r = $('Atendente atribuído').first().json ?? {};\nconst nome = r?.data?.name ?? r?.data?.attendant?.name ?? r?.attendant?.name ?? null;\nrow.vendedor = nome;\nrow.raw_payload = { ...row.raw_payload, vendedor_fonte: nome ? 'assign' : null };\nreturn [{ json: row }];"
+      }
+    },
+    {
+      "name": "Lote",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Só contato com pelo menos 1 mensagem no dia; lotes de até 500 pro upsert.\nconst linhas = $input.all().map(i => i.json).filter(j => !j._skip && j.contact_id).map(({ _precisa_assign, _skip, ...r }) => r);\nconst out = [];\nfor (let x = 0; x < linhas.length; x += 500) out.push({ json: { linhas: linhas.length, body: linhas.slice(x, x + 500) } });\nreturn out;"
+      }
+    },
+    {
+      "name": "Gravar no Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "supabaseApi": {
+          "id": "lE0HnMSq3MSGveqV",
+          "name": "[MARTHA] Supabase service role"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/unnichat_conversas_dia?on_conflict=dia,contact_id",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Todo dia 23h40": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reprocessar dia": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Preparar dia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar dia": {
+      "main": [
+        [
+          {
+            "node": "Listar negócios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar negócios": {
+      "main": [
+        [
+          {
+            "node": "Contatos com evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contatos com evento": {
+      "main": [
+        [
+          {
+            "node": "Universo do dia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Universo do dia": {
+      "main": [
+        [
+          {
+            "node": "Loop contatos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop contatos": {
+      "main": [
+        [
+          {
+            "node": "Lote",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Espera",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lote": {
+      "main": [
+        [
+          {
+            "node": "Gravar no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espera": {
+      "main": [
+        [
+          {
+            "node": "Mensagens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagens": {
+      "main": [
+        [
+          {
+            "node": "Contar do dia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contar do dia": {
+      "main": [
+        [
+          {
+            "node": "Sem vendedor no prefixo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sem vendedor no prefixo?": {
+      "main": [
+        [
+          {
+            "node": "Espera atendente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop contatos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espera atendente": {
+      "main": [
+        [
+          {
+            "node": "Atendente atribuído",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atendente atribuído": {
+      "main": [
+        [
+          {
+            "node": "Aplicar atendente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aplicar atendente": {
+      "main": [
+        [
+          {
+            "node": "Loop contatos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lzBoaNrbFp4FALjY",
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none"
+  },
+  "tags": [
+    {
+      "name": "martha"
+    },
+    {
+      "name": "fonte:unnichat"
+    },
+    {
+      "name": "tipo:agendado"
+    }
+  ],
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

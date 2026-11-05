@@ -27,6 +27,8 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261104_0007_ajustes_primeiros_eventos.sql` | guarda contra evento Hubla fora de ordem, `negocio_id`/`etapa_desde` no CRM, correção dos primeiros eventos |
 | `20261105_0008_unnichat_coletas.sql` | brutas `unnichat_automacoes_metricas` (foto horária) e `unnichat_automacoes_nodes` (template e categoria de cobrança), `template_id` em `unnichat_broadcasts`, config `whatsapp_preco` com os preços da Meta de 01/10/2026 |
 | `20261105_0009_unnichat_templates.sql` | bruta `unnichat_templates` (id da Meta -> nome e categoria), alimentada pela coleta de automações |
+| `20261105_0010_conversas_tpl_vendedor.sql` | `unnichat_conversas_dia`: `tpl_vendedor_utl`/`_mkt` viram `tpl_vendedor` (desfeita na 0011) |
+| `20261105_0011_conversas_tpl_vendedor_categoria.sql` | volta `tpl_vendedor_utl`/`_mkt` (a API REST traz a categoria do template) e remove `tpl_vendedor` |
 
 ## Tabelas de cadastro
 
