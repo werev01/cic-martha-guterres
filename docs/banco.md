@@ -31,6 +31,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261105_0011_conversas_tpl_vendedor_categoria.sql` | volta `tpl_vendedor_utl`/`_mkt` (a API REST traz a categoria do template) e remove `tpl_vendedor` |
 | `20261105_0012_cic_fase1.sql` | trava de venda paga em `hubla_vendas`, funções internas e RPCs da fase 1 (`cic_vendedor_mes`, `cic_meta_mes`, `cic_home`) |
 | `20261105_0013_reembolso_por_status.sql` | trava libera paid -> refunded/chargeback (só status e data); venda válida = foi paga um dia; reembolso também pelo status da venda; `cic_home` só com o comercial |
+| `20261105_0014_listas_vendas_reembolsos.sql` | RPCs `cic_lista_vendas` e `cic_lista_reembolsos` (telas Relatórios e Reembolsos, só comercial) e função interna `cic_fone` |
 
 ## Camada tratada (RPCs do app)
 
@@ -43,7 +44,13 @@ Regras em `escopo.md` (CIC fase 1). Todas `security definer`, `stable`,
 | `cic_meta_mes(p_mes)` | só admin (senão erro 42501) | jsonb: líquido comercial final, vendas, reembolsos, primeira venda, dias úteis (mês, decorridos, restantes), projeção, `metas[]` (% , falta, falta por dia útil), `serie[]` diária com acumulado |
 | `cic_home(p_inicio, p_fim)` | só admin (senão erro 42501) | jsonb, só comercial: `serie[]` por dia (vendas, líquido, bruto, reembolsos), `produtos[]`, `conversao` do time |
 
-Internas, sem acesso do app: `cic_vendas_validas`, `cic_reembolsos_validos`,
+| `cic_lista_vendas(p_inicio, p_fim)` | admin: todos os vendedores; vendedor: só as dele; sem perfil: vazio | uma linha por venda válida com vendedor: data e hora (SP), cliente, telefone (`+55...`), vendedor, produto, oferta, bruto, líquido, reembolsada e data do reembolso; mais recente primeiro |
+| `cic_lista_reembolsos(p_inicio, p_fim)` | idem | uma linha por reembolso efetivado de venda com vendedor: data do reembolso e da venda, cliente, telefone, vendedor, produto, líquido abatido |
+
+Só comercial em todas as RPCs, inclusive pro admin; orgânico fica no banco pra lista
+e análise (05/11/2026).
+
+Internas, sem acesso do app: `cic_fone`, `cic_vendas_validas`, `cic_reembolsos_validos`,
 `cic_contatos_em_contato` (todas por período `p_inicio, p_fim`).
 
 Trava (`trg_hubla_vendas_trava_paga`): linha `paid` só aceita virar `refunded`,

@@ -130,8 +130,10 @@ Regras:
 - Vendedor: `cic_vendedor_de_utm(utm_source)`; sem vendedor = orgânico.
 - Meta do mês e comissão: só vendas com vendedor, sobre o líquido final (vendas menos
   reembolsos do mês). Ultra Black e Meal Prep contam igual.
-- Dash mostra só o comercial (Home inclusive). Orgânico e reembolso de orgânico ficam
-  no banco pra lista e análise, fora do dash (05/11/2026).
+- Dash mostra só o comercial em todas as telas, inclusive pro admin. Orgânico e
+  reembolso de orgânico ficam no banco pra lista e análise, fora do dash (05/11/2026).
+- Relatórios = lista de vendas pra conferência (o time não acessa a Hubla): nome e
+  telefone do cliente aparecem só nela e na tela de Reembolsos. Vendedor vê só as dele.
 - Reembolso: `invoice.refunded` em `hubla_reembolsos` (aceito não quer dizer
   realizado) OU a venda com status refunded/chargeback (o webhook de Vendas é o que
   chega hoje). Um por fatura; data = `refunded_at`, senão `invoice_modified_at`. Abate
