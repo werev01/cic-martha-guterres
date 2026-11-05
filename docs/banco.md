@@ -32,7 +32,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 |---|---|---|
 | `cic_config` | `chave` | slug, nome, fuso, `tmb_fator_valor` = 0,5 (provisório), `utm_vendedor` (utm_source + `comercial_`), `conversao_alvo` (15% a partir da etapa 2) |
 | `vendedores` | `utm_slug` | 4 vendedores (`comercial_nome-sobrenome`, igual ao `utm_source` dos links) |
-| `links_venda` | `id` | link base por produto: Ultra Black 2026 (Opção 1 e Opção 2); o link de cada vendedor sai de `cic_meus_links()` |
+| `links_venda` | `id` | link base por produto: Ultra Black 2026 (Aluno e Não Aluno) e Meal Prep Express + Regina IA (Oferta), todos Hubla; o link de cada vendedor sai de `cic_meus_links()` |
 | `perfis` | `email` | 4 admins + 4 vendedores; `user_id` se preenche sozinho quando o usuário é criado no Auth |
 | `perfil_menus` | `papel, menu` | admin: 11 menus; vendedor: minhapagina, relatorios, reembolsos |
 | `crm_etapas` | `ordem` | 0 a 4, com o nome exato do Unnichat |

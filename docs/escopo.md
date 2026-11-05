@@ -95,7 +95,8 @@ Regras:
   `comercial_nome-sobrenome`, com sublinhado depois de "comercial" (ajustado em
   04/11/2026 pro padrão dos links que o time já usa). Variação de `_`/`-` e de
   maiúscula é tolerada na identificação.
-- Links de venda: Ultra Black 2026 (Opção 1 e Opção 2, Hubla). O CIC monta o link de
+- Links de venda (Hubla): Ultra Black 2026 (Aluno e Não Aluno) e Meal Prep Express +
+  Regina IA (Oferta, desde 05/11/2026). O CIC monta o link de
   cada vendedor com o `utm_source` dele e mostra na Minha página, com botão de copiar.
 - Campanhas da Martha na Callix seguem o prefixo `[MARTHA]` no nome; é por ele que o
   n8n filtra.
