@@ -225,6 +225,28 @@ Links de venda na Minha página, cada um com o cupom e botão de copiar
 - Família de automação (06/11): copy sem o número de versão final (`_1.0.1`), só copies
   que não são campanha de broadcast. Mesmas métricas de CRM da campanha.
 
+## Desempenho individual e Minha página (decidido em 06/11/2026)
+
+- Desempenho individual (só admin): tabela por vendedor ativo ordenada pelo faturamento
+  líquido das vendas no período; medalha nos 3 primeiros, "#n" nos demais; selo "The King"
+  só no 1º e só com faturamento > 0; participação = % do faturamento do time.
+- Card por vendedor: faturamento, conversão (vendas ÷ Em Contato), Leads (negócios que
+  entraram na base), Em Contato (pessoas únicas), LRT, leads em contato por venda, vendas,
+  ticket médio e média de vendas por dia útil decorrido no período. Sem Discadora.
+- LRT: minutos entre a última entrada em etapa anterior (Base ou Discadora) e a primeira
+  entrada em "2. Em Contato" do mesmo negócio, com essa entrada no período. Crédito pro
+  proprietario do evento de Em Contato (sem ele, o dono do negócio). Negativo ou sem etapa
+  anterior fica de fora. Mediana; a dica mostra quantos passaram de 24 h.
+- Minha página: gráfico do faturamento da comissão acumulado no mês (vendas − reembolsos
+  por dia, a régua da comissão), projeção pelo ritmo de dia útil (realizado ÷ dias úteis
+  decorridos × dias úteis do mês) e linhas tracejadas dos níveis que cabem até 1,15 × o
+  maior entre realizado e projeção (os de fora aparecem numa nota).
+- Insights (no máximo 3, nessa ordem): conversão abaixo do alvo (vendas a mais =
+  (alvo − conversão) × Em Contato), ticket líquido abaixo do alvo, faltando até 15% pro
+  próximo nível, tendência (queda ≥ 10% em conversão, ticket ou vendas por dia útil contra
+  o mês anterior cortado no mesmo dia; só a partir de dezembro/2026). Alvos em
+  `cic_config` (`conversao_alvo` e `insights`), nunca no código.
+
 ## Comissão do vendedor (decidido em 04/11/2026)
 
 Base: faturamento LÍQUIDO individual no mês (vendedor = `utm_source`). Todos os

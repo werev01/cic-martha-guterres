@@ -463,3 +463,43 @@ input { font: inherit; }
 .tabela-camp tr.lote td { background: rgba(31, 43, 56, .025); font-size: 12.5px; }
 .tabela-camp tr.lote td:first-child { padding-left: 28px; }
 .tabela-camp .camp-nome { display: flex; gap: 4px; align-items: flex-start; min-width: 200px; }
+
+/* Desempenho individual e Minha página (06/11/2026) */
+.ic { width: 14px; height: 14px; stroke-width: 2; }
+.tabela-rank .rank-nome { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.medalha { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 11.5px; font-weight: 600; color: var(--branco); flex-shrink: 0; }
+.medalha.m1 { background: #b8975a; }
+.medalha.m2 { background: #9aa3ab; }
+.medalha.m3 { background: var(--whiskey-2); }
+.rank { display: inline-block; width: 22px; text-align: center; font-size: 12px; color: var(--texto-2); flex-shrink: 0; }
+.selo-rei { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border-radius: 99px; background: #f3ead9; color: #8a6a2c; font-size: 11.5px; font-weight: 500; }
+.selo-rei .ic { width: 12px; height: 12px; }
+tr.rei td strong { color: #8a6a2c; }
+.part { display: flex; align-items: center; gap: 10px; min-width: 150px; }
+.part-barra { flex: 1; height: 8px; border-radius: 99px; background: var(--linen); overflow: hidden; }
+.part-barra i { display: block; height: 100%; background: var(--navy); border-radius: 99px; }
+.part span { font-size: 12.5px; color: var(--texto-2); width: 46px; text-align: right; }
+.vd-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.vd-card { border: 1px solid #e3ddda; border-radius: var(--raio); padding: 16px; background: var(--branco); }
+.vd-topo { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #ece6e3; }
+.vd-topo .pessoa i { width: 36px; height: 36px; font-size: 12.5px; }
+.vd-id { flex: 1; min-width: 0; }
+.vd-nome { font-weight: 500; }
+.vd-fat { font-size: 17px; font-weight: 600; margin-top: 2px; }
+.vd-conv { text-align: right; font-size: 17px; font-weight: 600; color: var(--whiskey); }
+.vd-conv span { display: block; font-size: 11px; font-weight: 400; color: var(--texto-2); }
+.vd-bl { padding-top: 10px; }
+.vd-bl-tit { font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--texto-2); margin-bottom: 4px; }
+.vd-kv { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; font-size: 13.5px; }
+.vd-kv span { color: var(--texto-2); }
+.vd-kv .dica { cursor: help; border-bottom: 1px dotted var(--grey); }
+.g-nivel { stroke: #b8975a; stroke-width: 1.2; stroke-dasharray: 5 4; }
+.g-nivel-txt { fill: #8a6a2c; }
+.g-proj { stroke: var(--whiskey); stroke-width: 2; stroke-dasharray: 3 4; opacity: .7; }
+.g-proj-ponto { fill: var(--branco); stroke: var(--whiskey); stroke-width: 2; }
+.legenda i.lg-proj { background: repeating-linear-gradient(90deg, var(--whiskey) 0 3px, transparent 3px 6px); height: 3px; width: 16px; vertical-align: 3px; }
+.legenda i.lg-nivel { background: repeating-linear-gradient(90deg, #b8975a 0 4px, transparent 4px 7px); height: 3px; width: 16px; vertical-align: 3px; }
+.insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.insight { border-left: 3px solid var(--whiskey); background: #faf7f6; border-radius: 0 var(--raio) var(--raio) 0; padding: 12px 14px; }
+.insight strong { display: block; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--whiskey); margin-bottom: 4px; }
+.insight p { margin: 0; font-size: 14px; line-height: 1.45; }

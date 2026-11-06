@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-06d';
-  var MUDANCAS = 'Mensageria: cliques e bloqueios, custo por dia, broadcasts por campanha com lotes, automações por família; sai o painel por copy';
+  var BUILD = '2026-11-06e';
+  var MUDANCAS = 'Desempenho individual refeito (ranking com participação e cards por vendedor com LRT); Minha página com faturamento da comissão acumulado e insights';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -601,6 +601,88 @@
   }
 
   // ---------- Minha página (vendedor e admin) ----------
+  // Burn da comissão: realizado, projeção e níveis (só os que cabem até 1,15 x o maior)
+  function grafComissao(m, largura) {
+    var burn = m.burn || [];
+    if (!burn.length) return '<p class="painel-msg">Sem calendário do mês.</p>';
+    var real = burn.map(function (b, i) { return { i: i, v: b.acum }; }).filter(function (p) { return p.v !== null && p.v !== undefined; });
+    var ult = real.length ? Number(real[real.length - 1].v) : 0;
+    var proj = m.projecao == null ? null : Number(m.projecao);
+    var topoV = Math.max(ult, proj || 0) * 1.15 || 1000;
+    var W = Math.max(300, Math.min(900, Math.round(largura || 760))), H = W < 500 ? 220 : 260, mE = 74, mB = 28, mT = 12, mD = 12, n = burn.length;
+    var bruto = topoV / 4, ordem = Math.pow(10, Math.floor(Math.log10(bruto)));
+    var passo = [1, 2, 2.5, 3, 4, 5, 6, 8, 10].map(function (k) { return k * ordem; }).filter(function (k) { return k >= bruto; })[0];
+    var topo = passo * 4;
+    var x = function (i) { return mE + (W - mE - mD) * (n === 1 ? 0 : i / (n - 1)); };
+    var y = function (v) { return mT + (H - mT - mB) * (1 - v / topo); };
+    var svg = '<svg class="grafico" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Faturamento da comissão acumulado">';
+    for (var g = 0; g <= 4; g++) {
+      var yg = y(passo * g);
+      svg += '<line x1="' + mE + '" x2="' + (W - mD) + '" y1="' + yg + '" y2="' + yg + '" class="g-grade"/>' +
+        '<text x="' + (mE - 8) + '" y="' + (yg + 4) + '" class="g-eixo" text-anchor="end">' + esc(rsCurto(passo * g)) + '</text>';
+    }
+    var niveis = (m.niveis || []).filter(function (l) { return Number(l.acima_de) > 0 && Number(l.acima_de) <= topoV; });
+    niveis.forEach(function (l) {
+      var yl = y(Number(l.acima_de));
+      svg += '<line x1="' + mE + '" x2="' + (W - mD) + '" y1="' + yl + '" y2="' + yl + '" class="g-nivel"/>' +
+        '<text x="' + (W - mD - 4) + '" y="' + (yl - 5) + '" class="g-eixo g-nivel-txt" text-anchor="end">' + esc(l.nome + ' (' + pct(l.pct) + ')') + '</text>';
+    });
+    if (real.length) {
+      var u = real[real.length - 1];
+      if (proj !== null && u.i < n - 1) {
+        svg += '<path d="M' + x(u.i).toFixed(1) + ' ' + y(ult).toFixed(1) + ' L' + x(n - 1).toFixed(1) + ' ' + y(proj).toFixed(1) + '" class="g-linha g-proj"/>' +
+          '<circle cx="' + x(n - 1).toFixed(1) + '" cy="' + y(proj).toFixed(1) + '" r="3.5" class="g-proj-ponto"><title>' + esc('Projeção: ' + rs(proj)) + '</title></circle>';
+      }
+      svg += '<path d="' + real.map(function (p, k) { return (k ? 'L' : 'M') + x(p.i).toFixed(1) + ' ' + y(Number(p.v)).toFixed(1); }).join(' ') + '" class="g-linha g-real"/>';
+      svg += '<circle cx="' + x(u.i).toFixed(1) + '" cy="' + y(ult).toFixed(1) + '" r="4" class="g-ponto"><title>' + esc(ddmm(burn[u.i].dia) + ': ' + rs(ult)) + '</title></circle>';
+      real.forEach(function (p) {
+        svg += '<rect x="' + (x(p.i) - 6).toFixed(1) + '" y="' + mT + '" width="12" height="' + (H - mT - mB) + '" fill="transparent"><title>' + esc(ddmm(burn[p.i].dia) + ': ' + rs(p.v)) + '</title></rect>';
+      });
+    }
+    var cada = Math.max(1, Math.ceil(n / Math.floor((W - mE) / 30)));
+    burn.forEach(function (b, i) {
+      if (i % cada === 0 || i === n - 1) svg += '<text x="' + x(i).toFixed(1) + '" y="' + (H - 9) + '" class="g-eixo" text-anchor="middle">' + b.dia.slice(8, 10) + '</text>';
+    });
+    svg += '</svg>';
+    var foraEscala = (m.niveis || []).filter(function (l) { return Number(l.acima_de) > topoV; });
+    return '<div class="legenda"><span><i class="lg-real"></i>Realizado · ' + rs(ult) + '</span>' +
+      (proj !== null ? '<span><i class="lg-proj"></i>Projeção · ' + rs(proj) + '</span>' : '') +
+      (niveis.length ? '<span><i class="lg-nivel"></i>Níveis</span>' : '') + '</div>' + svg +
+      (foraEscala.length ? '<p class="fraco nota">Fora da escala por enquanto: ' + foraEscala.map(function (l) { return esc(l.nome) + ' em ' + rsCurto(l.acima_de); }).join(', ') + '.</p>' : '');
+  }
+
+  // Insights da Minha página: no máximo 3, alvos vindos do banco (cic_config)
+  function insightsMP(m) {
+    var a = m.alvos || {}, out = [];
+    var dec = function (v, c) { return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: c, maximumFractionDigits: c }); };
+    var cAlvo = Number(a.conversao_alvo), conv = m.conversao == null ? null : Number(m.conversao);
+    if (conv !== null && cAlvo && conv < cAlvo) {
+      var mais = Math.round((cAlvo - conv) * Number(m.contatos || 0));
+      out.push(['Conversão', 'Sua conversão está em ' + pct(conv) + ' e o alvo é ' + pct(cAlvo, 0) + '. Faltam ' + dec((cAlvo - conv) * 100, 1) + ' pontos' +
+        (mais > 0 ? ', o que daria ' + plural(mais, 'venda', 'vendas') + ' a mais com os ' + num(m.contatos) + ' contatos do mês.' : '.')]);
+    }
+    var tAlvo = Number(a.ticket_alvo), tk = m.ticket == null ? null : Number(m.ticket);
+    if (tk !== null && tAlvo && tk < tAlvo) {
+      out.push(['Ticket', 'Seu ticket líquido está em ' + rs(tk) + ' e o alvo é ' + rs(tAlvo) + '. São ' + rs(tAlvo - tk) + ' a mais por venda.']);
+    }
+    if (m.proximo_nivel && m.proximo_limite && Number(m.falta_proximo) <= Number(a.proximo_nivel_pct || 0) * Number(m.proximo_limite)) {
+      out.push(['Próximo nível', 'Faltam ' + rs(m.falta_proximo) + ' para o ' + esc(m.proximo_nome) + ' (' + pct(m.proximo_pct) + ' sobre o total).']);
+    }
+    var t = m.tendencia, q = Number(a.queda_tendencia || 0.1);
+    if (t) {
+      var caiu = function (atual, antes) { return atual !== null && antes && (antes - atual) / antes >= q; };
+      var rot = 'no mesmo dia do mês passado';
+      if (caiu(conv, t.conversao)) out.push(['Tendência', 'Sua conversão caiu de ' + pct(t.conversao) + ' para ' + pct(conv) + ' ' + rot + '.']);
+      else if (caiu(tk, t.ticket)) out.push(['Tendência', 'Seu ticket caiu de ' + rs(t.ticket) + ' para ' + rs(tk) + ' ' + rot + '.']);
+      else if (caiu(m.vendas_dia == null ? null : Number(m.vendas_dia), t.vendas_dia)) out.push(['Tendência', 'Suas vendas por dia útil caíram de ' + dec(t.vendas_dia, 1) + ' para ' + dec(m.vendas_dia, 1) + ' ' + rot + '.']);
+    }
+    out = out.slice(0, 3);
+    if (!out.length) return '';
+    return bloco('Insights', 'Onde está o próximo ganho no mês.', '<div class="insights">' + out.map(function (x) {
+      return '<div class="insight"><strong>' + x[0] + '</strong><p>' + x[1] + '</p></div>';
+    }).join('') + '</div>');
+  }
+
   function telaMinha(alvo, id) {
     carregando(alvo);
     var mes = mesAtual();
@@ -642,9 +724,18 @@
         kpi('Reembolsos do mês', num(v.reembolsos_qtd), Number(v.reembolsos_qtd) ? rs(v.reembolsos_liquido) + ' abatidos' : 'nenhum') +
         kpi('Conversão', pct(v.conversao), num(v.vendas_qtd) + ' vendas · ' + num(v.contatos) + ' contatos ' + convTag(v.conversao, v.conversao_alvo)) +
         '</div>' +
-        bloco('Régua de níveis', frase, fx.length ? regua(marcos, lf, { fim: Math.max(fimRegua, lf * 1.05) }) : '<p class="painel-msg">Régua do mês não cadastrada.</p>');
+        bloco('Régua de níveis', frase, fx.length ? regua(marcos, lf, { fim: Math.max(fimRegua, lf * 1.05) }) : '<p class="painel-msg">Régua do mês não cadastrada.</p>') +
+        '<div id="mp-extra"></div>';
       var sel = $('sel-vendedor');
       if (sel) sel.addEventListener('change', function () { guardar('cic-vendedor', sel.value); telaMinha(alvo, ++pedido); });
+      var extra = $('mp-extra');
+      sb.rpc('cic_minha_pagina', { p_mes: mes, p_vendedor: admin ? v.vendedor_slug : null }).then(function (r2) {
+        if (id !== pedido) return;
+        if (r2.error) return falhou(extra, r2.error);
+        var m = r2.data || {};
+        extra.innerHTML = bloco('Faturamento da comissão acumulado no mês', 'Líquido por dia (vendas − reembolsos), a mesma régua da comissão. Projeção pelo ritmo de dia útil.',
+          grafComissao(m, extra.clientWidth - 50)) + insightsMP(m);
+      });
       $('bloco-links').hidden = false;
       carregarLinks(admin ? v.vendedor_nome : null);
     });
@@ -829,31 +920,56 @@
     return sb.rpc(nome, par);
   }
 
+  // minutos -> "6 min" / "1 h 05"
+  function minutos(m) {
+    if (m === null || m === undefined) return '–';
+    m = Math.round(Number(m));
+    if (m < 60) return m + ' min';
+    return Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0');
+  }
+  function iconeHTML(nome) {
+    var svg = (window.CIC_ICONES || {})[nome];
+    return svg ? '<svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + svg.replace(/^\s*<svg[^>]*>/, '') + '</svg>' : '';
+  }
   function telaDesempenho(alvo, id) {
     telaGestao(alvo, id, false, function (corpo, idc) {
       rpcGestao('cic_desempenho', false).then(function (r) {
         if (idc !== pedido) return;
         if (r.error) return falhou(corpo, r.error);
-        var linhas = r.data || [];
+        var linhas = (r.data || []).slice().sort(function (a, b) { return Number(b.liquido) - Number(a.liquido); });
+        if (!linhas.length) { corpo.innerHTML = '<p class="painel-msg vazio">Nenhum vendedor ativo.</p>'; return; }
+        var total = soma(linhas, 'liquido');
+        var du = linhas[0].dias_uteis;
+        var tab = '<div class="tabela-rolagem"><table class="tabela tabela-rank"><thead><tr><th>Vendedor</th><th class="n">Faturamento</th><th class="n">Vendas</th><th class="n">Ticket médio</th><th>Participação</th></tr></thead><tbody>' +
+          linhas.map(function (l, i) {
+            var rei = i === 0 && Number(l.liquido) > 0;
+            var part = total > 0 ? Number(l.liquido) / total : 0;
+            var pos = i < 3 ? '<span class="medalha m' + (i + 1) + '" title="' + (i + 1) + 'º lugar">' + (i + 1) + '</span>' : '<span class="rank">#' + (i + 1) + '</span>';
+            return '<tr' + (rei ? ' class="rei"' : '') + '><td><div class="rank-nome">' + pos + pessoa(l.vendedor_nome) +
+              (rei ? '<span class="selo-rei">' + iconeHTML('coroa') + 'The King</span>' : '') + '</div></td>' +
+              '<td class="n"><strong>' + (Number(l.liquido) > 0 ? rs(l.liquido) : '–') + '</strong></td><td class="n">' + num(l.vendas_qtd) + '</td>' +
+              '<td class="n">' + (l.ticket == null ? '–' : rs(l.ticket)) + '</td>' +
+              '<td><div class="part"><div class="part-barra"><i style="width:' + (part * 100).toFixed(1) + '%"></i></div><span>' + pct(part) + '</span></div></td></tr>';
+          }).join('') + '</tbody></table></div>';
         var sel = filtro.vend && filtro.vend !== '_sem' ? linhas.filter(function (l) { return l.vendedor_slug === filtro.vend; }) : linhas;
-        var nome = sel.length === 1 && filtro.vend ? sel[0].vendedor_nome : 'Time';
-        var vq = soma(sel, 'vendas_qtd'), ct = soma(sel, 'contatos');
-        var alvoConv = linhas.length ? linhas[0].conversao_alvo : 0.15;
-        var conv = ct ? vq / ct : null;
-        var cards = '<p class="periodo">' + esc(nome) + ' · ' + periodoTxt() + '</p><div class="kpis">' +
-          kpi('Líquido', rs(soma(sel, 'liquido')), plural(vq, 'venda', 'vendas') + ' na Hubla', true) +
-          kpi('Comissão no mês', rs(soma(sel, 'comissao')), sel.length === 1 ? esc(sel[0].nivel_nome || '') + ' · ' + pct(sel[0].pct) : 'soma do time') +
-          kpi('Conversão', pct(conv), num(vq) + ' vendas · ' + num(ct) + ' contatos ' + convTag(conv, alvoConv)) +
-          kpi('Perdas comerciais', num(soma(sel, 'perdas_comerciais')), 'sem as saídas CS') +
-          kpi('Mensagens enviadas', num(soma(sel, 'msgs_vendedor')), num(soma(sel, 'tpl_vendedor')) + ' templates') + '</div>';
-        var tab = linhas.map(function (l) {
-          return [pessoa(l.vendedor_nome), num(l.vendas_qtd), '<strong>' + rs(l.liquido) + '</strong>', rs(l.comissao),
-            num(l.entradas_0), num(l.entradas_1), num(l.entradas_2), num(l.entradas_3), num(l.entradas_4),
-            num(l.perdas_comerciais), pct(l.conversao), num(l.msgs_vendedor), num(l.tpl_vendedor)];
-        });
-        corpo.innerHTML = cards + bloco('Comparativo', 'Vendas e líquido pela Hubla. Entradas: negócios que entraram em cada etapa do CRM no período. Comissão: mês inteiro.',
-          tabela(['Vendedor', 'Vendas', 'Líquido', 'Comissão', 'Base', 'Discad.', 'Contato', 'Negoc.', 'Forecast', 'Perdas', 'Conversão', 'Msgs', 'Templates'],
-            tab, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]));
+        var kv = function (rot, val, dica) { return '<div class="vd-kv"><span' + (dica ? ' class="dica" title="' + esc(dica) + '"' : '') + '>' + rot + '</span><b>' + val + '</b></div>'; };
+        var cards = '<div class="vd-cards">' + sel.map(function (l) {
+          var lrtDica = 'Minutos entre a última entrada em etapa anterior e a primeira entrada em Em Contato do negócio (mediana de ' +
+            plural(l.lrt_n, 'negócio', 'negócios') + '). ' + plural(l.lrt_mais24, 'passou', 'passaram') + ' de 24 h.';
+          return '<div class="vd-card"><div class="vd-topo"><span class="pessoa"><i>' + esc(iniciais(l.vendedor_nome)) + '</i></span>' +
+            '<div class="vd-id"><div class="vd-nome">' + esc(l.vendedor_nome) + '</div><div class="vd-fat">' + rs(l.liquido) + '</div></div>' +
+            '<div class="vd-conv">' + pct(l.conversao) + '<span>conversão</span></div></div>' +
+            '<div class="vd-bl"><div class="vd-bl-tit">Funil</div>' +
+              kv('Leads', num(l.entradas_0)) + kv('Em Contato', num(l.contatos)) +
+              kv('LRT (mediana)', minutos(l.lrt_mediana), lrtDica) +
+              kv('Leads em contato p/ venda', Number(l.vendas_qtd) > 0 ? (Number(l.contatos) / Number(l.vendas_qtd)).toLocaleString('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 }) : '–') + '</div>' +
+            '<div class="vd-bl"><div class="vd-bl-tit">Resultado</div>' +
+              kv('Vendas', num(l.vendas_qtd)) + kv('Faturamento', rs(l.liquido)) + kv('Ticket médio', l.ticket == null ? '–' : rs(l.ticket)) +
+              kv('Média vendas/dia', l.media_dia == null ? '–' : Number(l.media_dia).toLocaleString('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 }), 'Vendas ÷ ' + plural(du, 'dia útil decorrido', 'dias úteis decorridos') + ' no período') + '</div></div>';
+        }).join('') + '</div>';
+        corpo.innerHTML = '<p class="periodo">' + periodoTxt() + '</p>' +
+          bloco('Desempenho por vendedor', 'Faturamento líquido das vendas na Hubla no período. Participação = % do faturamento do time.', tab) +
+          bloco('Por vendedor', 'Leads: negócios que entraram na base. Em Contato: pessoas únicas. Conversão = vendas ÷ Em Contato.', cards);
       });
     });
   }
