@@ -36,6 +36,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261105_0016_mensageria.sql` | `cic_mensageria` (só admin, custo estimado de WhatsApp do comercial) e internas `cic_preco_whatsapp`, `cic_servico_dia` |
 | `20261105_0017_cupons_links.sql` | `cupom` e `cupom_desconto` em `links_venda` (5OFF no Ultra Black, DEZCONTO no Meal Prep); `cic_meus_links()` devolve os dois |
 | `20261106_0018_cupons_multiplos.sql` | cupons saem de `links_venda` e vão pra `links_venda_cupons` (vários por link); 10CONTO no Ultra Black; `cic_meus_links()` devolve `cupons jsonb` |
+| `20261106_0019_home_cards.sql` | `cic_home` nova (cards do período, hoje e ontem, plataformas, produtos com ofertas, matriz dia a dia); interna `cic_kpis_comercial`; `cic_contatos_em_contato` conta pessoa pela chave do telefone |
 
 ## Camada tratada (RPCs do app)
 
@@ -46,7 +47,7 @@ Regras em `escopo.md` (CIC fase 1). Todas `security definer`, `stable`,
 |---|---|---|
 | `cic_vendedor_mes(p_mes)` | admin: todos os vendedores ativos; vendedor: só ele; sem perfil: vazio | por vendedor: vendas (qtd, líquido, bruto), reembolsos do mês (qtd, líquido), líquido final, nível/%/comissão e falta pro próximo (`cic_comissao`), contatos em "2. Em Contato", conversão e alvo |
 | `cic_meta_mes(p_mes)` | só admin (senão erro 42501) | jsonb: líquido comercial final, vendas, reembolsos, primeira venda, dias úteis (mês, decorridos, restantes), projeção, `metas[]` (% , falta, falta por dia útil), `serie[]` diária com acumulado |
-| `cic_home(p_inicio, p_fim)` | só admin (senão erro 42501) | jsonb, só comercial: `serie[]` por dia (vendas, líquido, bruto, reembolsos), `produtos[]`, `conversao` do time |
+| `cic_home(p_inicio, p_fim)` | só admin (senão erro 42501) | jsonb, só comercial: `periodo`, `dia_hoje`, `dia_ontem` (bruto, líquido, reembolso, líquido após reembolso, vendas, tickets, leads, Em Contato, conversão), `plataformas[]` (hoje só Hubla; TMB entra depois), `produtos[]` com `ofertas[]` (qtd, líquido, % do total, tickets), `matriz` (mês da data final: `dias[]` com `util`/`feriado`/`parcial` e `total` com pessoas únicas do mês) |
 
 | `cic_lista_vendas(p_inicio, p_fim)` | admin: todos os vendedores; vendedor: só as dele; sem perfil: vazio | uma linha por venda válida com vendedor: data e hora (SP), cliente, telefone (`+55...`), vendedor, produto, oferta, bruto, líquido, reembolsada e data do reembolso; mais recente primeiro |
 | `cic_lista_reembolsos(p_inicio, p_fim)` | idem | uma linha por reembolso efetivado de venda com vendedor: data do reembolso e da venda, cliente, telefone, vendedor, produto, líquido abatido |
@@ -63,7 +64,7 @@ Regras das telas de gestão em `contrato-dados.md` (unnichat_eventos) e `escopo.
 Só comercial em todas as RPCs, inclusive pro admin; orgânico fica no banco pra lista
 e análise (05/11/2026).
 
-Internas, sem acesso do app: `cic_preco_whatsapp`, `cic_servico_dia`, `cic_negocios`, `cic_fone_chave`, `cic_fone`, `cic_vendas_validas`, `cic_reembolsos_validos`,
+Internas, sem acesso do app: `cic_kpis_comercial`, `cic_preco_whatsapp`, `cic_servico_dia`, `cic_negocios`, `cic_fone_chave`, `cic_fone`, `cic_vendas_validas`, `cic_reembolsos_validos`,
 `cic_contatos_em_contato` (todas por período `p_inicio, p_fim`).
 
 Trava (`trg_hubla_vendas_trava_paga`): linha `paid` só aceita virar `refunded`,
