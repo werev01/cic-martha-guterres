@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-05d';
-  var MUDANCAS = 'Mensageria: volume e custo estimado de WhatsApp do comercial (broadcasts, automações, vendedores e copy)';
+  var BUILD = '2026-11-05e';
+  var MUDANCAS = 'Minha página: cupom de cada oferta junto do link de venda, com botão de copiar';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -874,6 +874,14 @@
           var n = document.createElement('div'); n.className = 'link-nome'; n.textContent = l.produto + ' · ' + l.rotulo;
           var u = document.createElement('div'); u.className = 'link-url'; u.textContent = l.url; u.title = l.url;
           info.appendChild(n); info.appendChild(u);
+          if (l.cupom) {
+            var c = document.createElement('div'); c.className = 'link-cupom';
+            var ct = document.createElement('span');
+            ct.textContent = 'Cupom: ' + l.cupom + (l.cupom_desconto ? ' (' + l.cupom_desconto + ' off)' : '');
+            var cb = document.createElement('button'); cb.type = 'button'; cb.className = 'btn-copiar btn-copiar-mini'; cb.textContent = 'Copiar';
+            cb.addEventListener('click', function () { copiar(l.cupom, cb); });
+            c.appendChild(ct); c.appendChild(cb); info.appendChild(c);
+          }
           var b = document.createElement('button'); b.type = 'button'; b.className = 'btn-copiar'; b.textContent = 'Copiar';
           b.addEventListener('click', function () { copiar(l.url, b); });
           row.appendChild(info); row.appendChild(b); g.appendChild(row);

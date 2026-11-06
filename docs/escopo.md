@@ -145,6 +145,18 @@ Regras:
   (hoje incluso), projetado até o fim do mês. Falta por dia útil usa os dias úteis
   depois de hoje.
 
+## Ofertas e cupons vigentes (05/11/2026)
+
+Links de venda na Minha página, cada um com o cupom e botão de copiar
+(`links_venda`, `cic_meus_links()`):
+
+| Produto | Oferta | Cupom |
+|---|---|---|
+| Ultra Black 2026 | Aluno | 5OFF (5%) |
+| Ultra Black 2026 | Não Aluno | 5OFF (5%) |
+| Meal Prep Express | 397 | DEZCONTO (10%) |
+| Meal Prep Express + Regina IA | 497 | DEZCONTO (10%) |
+
 ## Mensageria: custo de WhatsApp (decidido em 05/11/2026)
 
 - Escopo comercial: broadcasts com nome `COMERCIAL...`, automações das pastas coletadas

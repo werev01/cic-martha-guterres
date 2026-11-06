@@ -34,6 +34,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261105_0014_listas_vendas_reembolsos.sql` | RPCs `cic_lista_vendas` e `cic_lista_reembolsos` (telas Relatórios e Reembolsos, só comercial) e função interna `cic_fone` |
 | `20261105_0015_gestao.sql` | telas de gestão: `cic_desempenho`, `cic_taxa_passagem`, `cic_motivos_perda`, `cic_ciclo_venda` (só admin); internas `cic_negocios`, `cic_fone_chave`; motivo "[2] Já é cliente" sem o CMP; Daniel Godoy vendedor (segue admin) |
 | `20261105_0016_mensageria.sql` | `cic_mensageria` (só admin, custo estimado de WhatsApp do comercial) e internas `cic_preco_whatsapp`, `cic_servico_dia` |
+| `20261105_0017_cupons_links.sql` | `cupom` e `cupom_desconto` em `links_venda` (5OFF no Ultra Black, DEZCONTO no Meal Prep); `cic_meus_links()` devolve os dois |
 
 ## Camada tratada (RPCs do app)
 
@@ -75,7 +76,7 @@ refunded/chargeback não muda mais. Overdue/unpaid virando paid continua passand
 |---|---|---|
 | `cic_config` | `chave` | slug, nome, fuso, `tmb_fator_valor` = 0,5 (provisório), `utm_vendedor` (utm_source + `comercial_`), `conversao_alvo` (15% a partir da etapa 2) |
 | `vendedores` | `utm_slug` | 4 vendedores (`comercial_nome-sobrenome`, igual ao `utm_source` dos links) |
-| `links_venda` | `id` | link base por produto: Ultra Black 2026 (Aluno e Não Aluno) e Meal Prep Express + Regina IA (Oferta), todos Hubla; o link de cada vendedor sai de `cic_meus_links()` |
+| `links_venda` | `id` | link base por oferta, com `cupom` e `cupom_desconto`. Ativos: Ultra Black 2026 (Aluno, Não Aluno; 5OFF 5%), Meal Prep Express (397) e Meal Prep Express + Regina IA (497) (DEZCONTO 10%); todos Hubla. O link de cada vendedor (e o cupom) sai de `cic_meus_links()`; vendedor inativo não recebe link |
 | `perfis` | `email` | 4 admins + 4 vendedores; `user_id` se preenche sozinho quando o usuário é criado no Auth |
 | `perfil_menus` | `papel, menu` | admin: 11 menus; vendedor: minhapagina, relatorios, reembolsos |
 | `crm_etapas` | `ordem` | 0 a 4, com o nome exato do Unnichat |
@@ -102,7 +103,10 @@ insert into perfis (email, nome, papel, vendedor_slug) values ('email@x.com', 'N
 select vendedor_nome, rotulo, url from cic_meus_links();
 
 -- Link novo de produto (todo vendedor ganha o seu na hora)
-insert into links_venda (produto, rotulo, url_base, ordem) values ('Produto', 'Opção 3', 'https://pay.hub.la/XXXX', 3);
+insert into links_venda (produto, rotulo, url_base, ordem, cupom, cupom_desconto) values ('Produto', 'Opção 3', 'https://pay.hub.la/XXXX', 3, 'CUPOM', '5%');
+
+-- Trocar o cupom de um produto
+update links_venda set cupom = 'NOVO', cupom_desconto = '10%' where produto = 'Produto';
 
 -- Desligar alguém (perde o acesso na hora, sem apagar histórico)
 update perfis set ativo = false where email = 'email@x.com';
