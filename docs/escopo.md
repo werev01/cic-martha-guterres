@@ -210,8 +210,20 @@ Links de venda na Minha página, cada um com o cupom e botão de copiar
   (não rateado), aplicada às primeiras 1.000 do mês, dia a dia.
 - Automações: volume do período = última foto no período - última foto antes dele; sem
   foto anterior, conta o acumulado da primeira foto.
-- Copy: contatos com o `codigo_copy` no CRM e quantos compraram depois (venda paga na
-  Hubla, casada pelo telefone). Mede só quem entrou no CRM, não todos que receberam.
+- Cliques (06/11): só automações, `clicks.uniqueClicks` da foto horária, pela diferença
+  das fotos no período. % = cliques ÷ entregues dos passos que têm botão. Broadcast mostra
+  "–": a API do Unnichat não informa cliques de broadcast.
+- Bloqueios (06/11): `unnichat_blocklist.bloqueado_em` no período; % sobre templates
+  entregues. Copy do bloqueio = última `codigo_copy` da pessoa no CRM antes do bloqueio.
+- Custo por dia (06/11): barras por origem (broadcast pela data do disparo, automação pela
+  diferença das fotos do dia, vendedor por `unnichat_conversas_dia`, coletado às 23:40) e
+  linha de templates entregues. Bruto, antes da franquia.
+- Campanha (06/11): nome do broadcast sem o prefixo `COMERCIAL_`/`[COMERCIAL]` e sem o
+  sufixo `_<n>_LT<n>`. Lotes = os broadcasts da campanha, com data e hora do disparo.
+  Leads (E0) e em contato (E2) = pessoas únicas no CRM com a copy igual à campanha; venda
+  e bloqueio pela última copy antes do fato. Substitui o painel "Por código de copy".
+- Família de automação (06/11): copy sem o número de versão final (`_1.0.1`), só copies
+  que não são campanha de broadcast. Mesmas métricas de CRM da campanha.
 
 ## Comissão do vendedor (decidido em 04/11/2026)
 
