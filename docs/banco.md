@@ -42,6 +42,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261106_0022_desempenho_minha_pagina.sql` | `cic_desempenho` refeita (ticket, média de vendas por dia útil, LRT mediana e >24 h), `cic_minha_pagina` (burn da comissão, projeção, insights), interna `cic_lrt`, `cic_config.insights` |
 | `20261106_0023_auditoria.sql` | dias úteis a partir da 1ª venda comercial do mês (internas `cic_inicio_util`, `cic_conta_dia_util`) em `cic_desempenho`, `cic_minha_pagina`, `cic_meta_mes` e `cic_meta_funil`; `cic_desempenho` inclui inativo com atividade; `vendedor_ativo` em `cic_desempenho`, `cic_motivos_perda` e `cic_ciclo_venda` |
 | `20261106_0024_mensageria_inativo.sql` | `cic_mensageria`: vendedor inativo com conversa no período entra no custo de vendedor e no custo por dia; item de vendedores ganha `ativo` |
+| `20261106_0025_performance.sql` | performance sem mudar número: colunas geradas `pessoa_chave`/`copy_familia` + índices; `cic_negocios` e `cic_lrt` agregando numa passada; lateral com índice em `cic_mensageria` e `cic_meta_funil`; 1ª venda do mês calculada uma vez em `cic_desempenho`, `cic_minha_pagina` e `cic_meta_mes`; `pessoa_chave` em `cic_contatos_em_contato` e `cic_kpis_comercial` |
 
 ## Camada tratada (RPCs do app)
 
@@ -79,6 +80,27 @@ Trava (`trg_hubla_vendas_trava_paga`): linha `paid` só aceita virar `refunded`,
 `chargeback` ou `chargedback`, e aí muda só `status`, `event_type` e
 `invoice_modified_at`. Qualquer outra atualização de linha paga é ignorada; linha
 refunded/chargeback não muda mais. Overdue/unpaid virando paid continua passando.
+
+## Colunas geradas e índices de performance (0025, 06/11/2026)
+
+| Tabela | Coluna (stored) | Expressão | Índice |
+|---|---|---|---|
+| `unnichat_eventos` | `pessoa_chave` | `cic_fone_chave(telefone)` | `(pessoa_chave, event_ts)` |
+| `unnichat_eventos` | `copy_familia` | `regexp_replace(codigo_copy, '_\d+(\.\d+)*$', '')` | (`codigo_copy` já indexado) |
+| `unnichat_eventos` | – | – | `(negocio_id, event_ts)` |
+| `hubla_vendas` | `pessoa_chave` | `cic_fone_chave(payer_telefone)` | `(pessoa_chave, sale_date)` |
+| `unnichat_blocklist` | `pessoa_chave` | `cic_fone_chave(telefone)` | `(pessoa_chave)` |
+
+- Regra: função nova compara pessoa por `pessoa_chave`, nunca `cic_fone_chave(...)` ou
+  `right(..., 8)` linha a linha; família de copy por `copy_familia`. Subconsulta
+  correlacionada que varre CTE inteira por linha não entra: agregar uma vez e juntar, ou
+  `lateral` com índice.
+- Recálculo: coluna gerada só é recalculada quando a linha muda. Se `cic_fone_chave`
+  (que é `immutable`) ou a regra de família mudar, recalcular nas três tabelas
+  (`update public.unnichat_eventos set telefone = telefone;` e o mesmo em
+  `hubla_vendas` com `payer_telefone` e em `unnichat_blocklist`), ou dropar e recriar a
+  coluna. Mudar `cic_fone_chave` sem isso deixa as colunas com a regra antiga.
+- O n8n não manda essas colunas (geradas não aceitam valor); os upserts seguem iguais.
 
 ## Tabelas de cadastro
 
