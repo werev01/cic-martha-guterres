@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-06f';
-  var MUDANCAS = 'Dias úteis a partir da 1ª venda comercial do mês; vendedor inativo com atividade nas telas de gestão com etiqueta inativo';
+  var BUILD = '2026-11-06g';
+  var MUDANCAS = 'Mensageria: custo de vendedor inativo com conversa no período, com etiqueta inativo';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -1141,7 +1141,7 @@
           return [esc(f.familia), num(f.leads_e0), num(f.leads_e2) + de(f.leads_e2, f.leads_e0), num(f.vendas) + de(f.vendas, f.leads_e2), num(f.bloqueios)];
         });
         var vds = (d.vendedores || []).map(function (v) {
-          return [pessoa(v.vendedor), num(v.servico), num(v.contatos), num(v.tpl_utl), num(v.tpl_mkt), '<strong>' + reais(v.custo) + '</strong>', num(v.vendas), reais(v.custo_por_venda)];
+          return [pessoa(v.vendedor, v.ativo === false), num(v.servico), num(v.contatos), num(v.tpl_utl), num(v.tpl_mkt), '<strong>' + reais(v.custo) + '</strong>', num(v.vendas), reais(v.custo_por_venda)];
         });
         var fonte = (d.preco || [])[0];
         var precoTxt = (d.preco || []).map(function (p) {
