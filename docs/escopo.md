@@ -166,6 +166,23 @@ Regras:
 - Menu lateral recolhível (só ícones), estado guardado no navegador; sem storage, abre
   expandido. No celular segue o menu atual.
 
+## Meta do mês: burn-up e funis (decidido em 06/11/2026)
+
+- Burn-up: bronze, prata (meta oficial, tracejada) e ouro acumulados = meta ÷ dias úteis
+  do mês × dias úteis acumulados (`dim_calendario`; plana em fim de semana e feriado).
+  Realizado acumulado = líquido de vendas − reembolsos (mesma régua da Meta), até hoje.
+  Sombreado = o que falta pra Prata.
+- Matriz por funil, só Realizado (Meta e Δ entram quando houver meta por funil).
+  "Dias + semanas" ou "Só semanas" (semana de segunda a domingo, cortada no mês; subtotal
+  recalcula pessoas únicas).
+- Funil = `unnichat_eventos.origem` (vazio = "Sem origem"). Lead e Em Contato contam no
+  funil do próprio evento. Venda (só comercial) vai pro funil da origem mais recente da
+  pessoa antes da compra (telefone DDI + DDD + 8); sem evento antes = "Sem funil".
+  Crédito único por venda. TOTAL: Leads = soma dos funis; Em Contato = pessoas únicas.
+- Saíram da Meta do mês o gráfico por dia e o ranking dos vendedores.
+- Pendente (Nirla): origem vazia em ~60% dos eventos e vendas sem evento no CRM antes da
+  compra; ajuste na fonte (Unnichat).
+
 ## Ofertas e cupons vigentes (06/11/2026)
 
 Links de venda na Minha página, cada um com o cupom e botão de copiar
