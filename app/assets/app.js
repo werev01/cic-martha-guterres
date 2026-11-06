@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-06b';
-  var MUDANCAS = 'Menu lateral recolhível; Home com cards do período, hoje e ontem, venda por produto e oferta, e tabela dia a dia';
+  var BUILD = '2026-11-06c';
+  var MUDANCAS = 'Meta do mês: burn-up (bronze, prata e ouro x realizado) e matriz realizado por funil; sai o gráfico por dia e o ranking';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -440,14 +440,16 @@
   }
 
   // ---------- Meta do mês (admin) ----------
+  var granMatriz = ler('cic-meta-gran') === 'semanas' ? 'semanas' : 'dias';
+
   function telaMeta(alvo, id) {
     carregando(alvo);
     var mes = mesAtual();
-    Promise.all([sb.rpc('cic_meta_mes', { p_mes: mes }), sb.rpc('cic_vendedor_mes', { p_mes: mes })]).then(function (rr) {
+    Promise.all([sb.rpc('cic_meta_mes', { p_mes: mes }), sb.rpc('cic_meta_funil', { p_mes: mes })]).then(function (rr) {
       if (id !== pedido) return;
       var e = rr[0].error || rr[1].error;
       if (e) return falhou(alvo, e);
-      var d = rr[0].data, vend = rr[1].data || [];
+      var d = rr[0].data, f = rr[1].data || {};
       var metas = d.metas || [];
       var liq = Number(d.liquido) || 0;
       var prox = metas.filter(function (m) { return liq < Number(m.valor); })[0];
@@ -460,10 +462,6 @@
           Number(m.falta) > 0 ? rs(m.falta) : '<span class="tag tag-ok">batida</span>',
           Number(m.falta) > 0 ? (m.falta_dia_util == null ? '–' : rs(m.falta_dia_util)) : '–'];
       });
-      var ranking = vend.map(function (v, i) {
-        return [String(i + 1), esc(v.vendedor_nome), num(v.vendas_qtd), '<strong>' + rs(v.liquido_final) + '</strong>',
-          esc(v.nivel_nome || '–'), rs(v.comissao), pct(v.conversao)];
-      });
       alvo.innerHTML =
         '<p class="periodo">' + esc(nomeMes(mes)) + ' · vendas do comercial, líquido de reembolsos</p>' +
         '<div class="kpis">' +
@@ -475,12 +473,111 @@
         bloco('Caminho até o ouro', 'Linha tracejada: projeção do mês no ritmo atual.',
           regua(marcos, liq, { fim: Math.max(topo, d.projecao || 0) * 1.04, proj: d.projecao }) +
           tabela(['Meta', 'Valor', 'Atingido', 'Falta', 'Por dia útil'], linhasMeta, [1, 2, 3, 4])) +
-        bloco('Por dia', 'Líquido do comercial por dia da venda.',
-          grafBarras(d.serie || [], [{ chave: 'liquido', nome: 'Comercial', cor: COR.comercial }], { largura: alvo.clientWidth - 50 })) +
-        bloco('Ranking dos vendedores', '', ranking.length
-          ? tabela(['#', 'Vendedor', 'Vendas', 'Líquido', 'Nível', 'Comissão', 'Conversão'], ranking, [0, 2, 3, 5, 6])
-          : '<p class="painel-msg">Nenhum vendedor ativo.</p>');
+        bloco('Burn-up do mês', 'Metas acumuladas por dia útil (planas em fim de semana e feriado) e o realizado acumulado: líquido de vendas menos reembolsos, até hoje. Sombreado: o que falta pra Prata.',
+          grafBurn(f.burn || [], f.hoje, alvo.clientWidth - 50)) +
+        '<section class="bloco"><header class="bloco-topo bloco-topo-acao"><div><h2>Realizado por funil</h2>' +
+        '<p>Funil = origem do evento no CRM. Lead e Em Contato contam no funil do próprio evento; a venda vai pro funil da origem mais recente da pessoa antes da compra. TOTAL: Leads somados, Em Contato únicos.</p></div>' +
+        '<div class="alternar" role="group" aria-label="Granularidade">' +
+        '<button type="button" data-gran="dias"' + (granMatriz === 'dias' ? ' class="on"' : '') + '>Dias + semanas</button>' +
+        '<button type="button" data-gran="semanas"' + (granMatriz === 'semanas' ? ' class="on"' : '') + '>Só semanas</button></div></header>' +
+        '<div id="mt-matriz">' + matrizFunil(f) + '</div></section>';
+      Array.prototype.forEach.call(alvo.querySelectorAll('[data-gran]'), function (b) {
+        b.addEventListener('click', function () {
+          granMatriz = b.getAttribute('data-gran');
+          guardar('cic-meta-gran', granMatriz);
+          Array.prototype.forEach.call(alvo.querySelectorAll('[data-gran]'), function (x) { x.classList.toggle('on', x === b); });
+          $('mt-matriz').innerHTML = matrizFunil(f);
+        });
+      });
     });
+  }
+
+  // Burn-up: metas acumuladas (bronze, prata tracejada, ouro) e realizado até hoje
+  function grafBurn(burn, hoje, largura) {
+    if (!burn.length) return '<p class="painel-msg">Sem calendário do mês.</p>';
+    var W = Math.max(300, Math.min(900, Math.round(largura || 760))), H = W < 500 ? 230 : 280, mE = 74, mB = 28, mT = 12, mD = 12;
+    var n = burn.length;
+    var max = Math.max.apply(null, burn.map(function (b) { return Math.max(Number(b.ouro) || 0, Number(b.realizado) || 0); }).concat([1]));
+    var bruto = max / 4, ordem = Math.pow(10, Math.floor(Math.log10(bruto)));
+    var passo = [1, 2, 2.5, 3, 4, 5, 6, 8, 10].map(function (k) { return k * ordem; }).filter(function (k) { return k >= bruto; })[0];
+    var topo = passo * 4;
+    var x = function (i) { return mE + (W - mE - mD) * (n === 1 ? 0 : i / (n - 1)); };
+    var y = function (v) { return mT + (H - mT - mB) * (1 - v / topo); };
+    var svg = '<svg class="grafico" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Burn-up do mês">';
+    // fim de semana e feriado
+    burn.forEach(function (b, i) {
+      if (!b.util) {
+        var w = (W - mE - mD) / Math.max(1, n - 1);
+        svg += '<rect x="' + (x(i) - w / 2).toFixed(1) + '" y="' + mT + '" width="' + w.toFixed(1) + '" height="' + (H - mT - mB) + '" class="g-fds"><title>' + esc(b.feriado || 'fim de semana') + '</title></rect>';
+      }
+    });
+    for (var g = 0; g <= 4; g++) {
+      var vg = passo * g, yg = y(vg);
+      svg += '<line x1="' + mE + '" x2="' + (W - mD) + '" y1="' + yg + '" y2="' + yg + '" class="g-grade"/>' +
+        '<text x="' + (mE - 8) + '" y="' + (yg + 4) + '" class="g-eixo" text-anchor="end">' + esc(rsCurto(vg)) + '</text>';
+    }
+    var linha = function (k) { return burn.map(function (b, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(Number(b[k]) || 0).toFixed(1); }).join(' '); };
+    var real = burn.map(function (b, i) { return { i: i, v: b.realizado }; }).filter(function (p) { return p.v !== null && p.v !== undefined; });
+    // gap até a prata (só até hoje)
+    if (real.length) {
+      var topoP = real.map(function (p) { return x(p.i).toFixed(1) + ' ' + y(Number(burn[p.i].prata) || 0).toFixed(1); });
+      var baseR = real.slice().reverse().map(function (p) { return x(p.i).toFixed(1) + ' ' + y(Math.min(Number(p.v), Number(burn[p.i].prata) || 0)).toFixed(1); });
+      svg += '<path d="M' + topoP.join(' L') + ' L' + baseR.join(' L') + ' Z" class="g-gap"/>';
+    }
+    svg += '<path d="' + linha('bronze') + '" class="g-linha g-bronze"/>' +
+      '<path d="' + linha('ouro') + '" class="g-linha g-ouro"/>' +
+      '<path d="' + linha('prata') + '" class="g-linha g-prata"/>';
+    if (real.length) {
+      svg += '<path d="' + real.map(function (p, k) { return (k ? 'L' : 'M') + x(p.i).toFixed(1) + ' ' + y(Number(p.v)).toFixed(1); }).join(' ') + '" class="g-linha g-real"/>';
+      var u = real[real.length - 1];
+      svg += '<circle cx="' + x(u.i).toFixed(1) + '" cy="' + y(Number(u.v)).toFixed(1) + '" r="4" class="g-ponto"><title>' + esc(ddmm(burn[u.i].dia) + ': ' + rs(u.v)) + '</title></circle>';
+    }
+    var cada = Math.max(1, Math.ceil(n / Math.floor((W - mE) / 30)));
+    burn.forEach(function (b, i) {
+      if (i % cada === 0 || i === n - 1) svg += '<text x="' + x(i).toFixed(1) + '" y="' + (H - 9) + '" class="g-eixo" text-anchor="middle">' + b.dia.slice(8, 10) + '</text>';
+    });
+    svg += '</svg>';
+    var ult = real.length ? burn[real[real.length - 1].i] : null;
+    var leg = '<div class="legenda">' +
+      '<span><i class="lg-real"></i>Realizado' + (ult ? ' · ' + rs(ult.realizado) : '') + '</span>' +
+      '<span><i class="lg-bronze"></i>Bronze</span><span><i class="lg-prata"></i>Prata (meta)' + (ult ? ' · ' + rs(ult.prata) + ' até hoje' : '') + '</span>' +
+      '<span><i class="lg-ouro"></i>Ouro</span>' +
+      (ult ? '<span><i class="lg-gap"></i>Falta pra Prata · ' + rs(Math.max(0, Number(ult.prata) - Number(ult.realizado))) + '</span>' : '') + '</div>';
+    return leg + svg;
+  }
+
+  // Matriz por funil (só realizado)
+  function matrizFunil(f) {
+    var cols = (f.colunas || []).filter(function (c) { return granMatriz === 'dias' || c.tipo !== 'dia'; });
+    var funis = f.funis || [];
+    if (!cols.length) return '<p class="painel-msg">Sem dados do mês.</p>';
+    var linhas = [
+      ['Leads', function (x) { return x ? num(x.leads) : '–'; }],
+      ['Em Contato', function (x) { return x ? num(x.em_contato) : '–'; }],
+      ['Conversão', function (x) { return x && x.conversao != null ? pct(x.conversao) : '–'; }],
+      ['Vendas', function (x) { return x ? num(x.vendas) : '–'; }],
+      ['Ticket médio', function (x) { return x && x.ticket != null ? rs(x.ticket).replace(/^R\$\s?/, '') : '–'; }],
+      ['Faturamento', function (x) { return x ? rs(x.liquido).replace(/^R\$\s?/, '') : '–'; }]
+    ];
+    var classe = function (c) {
+      return (c.tipo === 'semana' ? ' sem' : c.tipo === 'mes' ? ' total' : '') + (c.tipo === 'dia' && !c.util ? ' fds' : '') +
+        (c.parcial ? ' hoje' : '') + (c.futuro ? ' futuro' : '');
+    };
+    var cab = '<thead><tr><th></th>' + cols.map(function (c) {
+      var sub = c.tipo === 'dia' ? diaSemana(c.inicio) + (c.parcial ? ' · parcial' : '') : c.tipo === 'semana' ? 'semana' : '';
+      return '<th class="n' + classe(c) + '">' + esc(c.tipo === 'semana' ? (c.inicio === c.fim ? c.inicio.slice(8, 10) : c.rotulo.replace('–', ' a ')) : c.rotulo) + (sub ? '<span>' + esc(sub) + '</span>' : '') + '</th>';
+    }).join('') + '</tr></thead>';
+    var bloco1 = function (titulo, pega, total) {
+      return '<tr class="mt-funil' + (total ? ' mt-total' : '') + '"><th colspan="' + (cols.length + 1) + '">' + esc(titulo) + '</th></tr>' +
+        linhas.map(function (l) {
+          return '<tr><th>' + l[0] + '</th>' + cols.map(function (c) {
+            return '<td class="n' + classe(c) + '">' + (c.futuro ? '' : l[1](pega(c))) + '</td>';
+          }).join('') + '</tr>';
+        }).join('');
+    };
+    var corpo = bloco1('TOTAL', function (c) { return c.total; }, true) +
+      funis.map(function (fn) { return bloco1(fn, function (c) { return (c.funis || {})[fn]; }); }).join('');
+    return '<div class="tabela-rolagem"><table class="tabela matriz mt-matriz">' + cab + '<tbody>' + corpo + '</tbody></table></div>';
   }
 
   // ---------- Minha página (vendedor e admin) ----------

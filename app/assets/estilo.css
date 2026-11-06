@@ -422,6 +422,32 @@ input { font: inherit; }
   .regua-rotulo, .regua-rotulo:first-child, .regua-rotulo:last-child { position: static; transform: none; text-align: left; }
 }
 
+/* Meta do mês: burn-up e matriz por funil */
+.g-fds { fill: #f3efed; }
+.g-gap { fill: rgba(132, 68, 32, .12); }
+.g-linha { fill: none; stroke-width: 2; }
+.g-bronze { stroke: var(--taupe); }
+.g-prata { stroke: var(--navy); stroke-dasharray: 6 5; }
+.g-ouro { stroke: #b8975a; }
+.g-real { stroke: var(--whiskey); stroke-width: 3; }
+.g-ponto { fill: var(--whiskey); }
+.legenda i.lg-real { background: var(--whiskey); height: 4px; vertical-align: 2px; }
+.legenda i.lg-bronze { background: var(--taupe); height: 3px; vertical-align: 3px; }
+.legenda i.lg-prata { background: repeating-linear-gradient(90deg, var(--navy) 0 4px, transparent 4px 7px); height: 3px; vertical-align: 3px; width: 16px; }
+.legenda i.lg-ouro { background: #b8975a; height: 3px; vertical-align: 3px; }
+.legenda i.lg-gap { background: rgba(132, 68, 32, .2); }
+.legenda { flex-wrap: wrap; row-gap: 6px; }
+.bloco-topo-acao { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.bloco-topo-acao > div:first-child { flex: 1; min-width: 240px; }
+.alternar { display: inline-flex; border: 1px solid var(--grey); border-radius: var(--raio); overflow: hidden; flex-shrink: 0; }
+.alternar button { border: 0; background: var(--branco); color: var(--texto-2); font-size: 12.5px; padding: 7px 12px; }
+.alternar button + button { border-left: 1px solid var(--grey); }
+.alternar button.on { background: var(--navy); color: var(--branco); }
+.mt-matriz tr.mt-funil th { text-align: left; padding-top: 16px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--navy); background: transparent; border-bottom: 1px solid var(--grey); }
+.mt-matriz tr.mt-total th { color: var(--whiskey); }
+.tabela.matriz .sem { background: #f6f3f2; font-weight: 500; border-left: 1px solid #e3ddda; }
+.tabela.matriz .futuro { color: #bdb4ad; }
+
 @media (max-width: 560px) {
   .hm-grid { grid-template-columns: 1fr; }
   .hm-val { font-size: 20px; }
