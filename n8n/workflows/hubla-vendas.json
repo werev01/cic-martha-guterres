@@ -3,7 +3,7 @@
   "name": "[MARTHA] Hubla · Vendas",
   "description": "Recebe da Hubla fatura paga e mudanças de status e grava em public.hubla_vendas (upsert por invoice_id).",
   "active": true,
-  "versionId": "1f8859b9-d2da-4573-ab3b-1b1ccc6803e5",
+  "versionId": "c6500e70-f940-4289-a0c1-cec6402fe0d7",
   "nodes": [
     {
       "name": "Webhook Hubla",
@@ -169,7 +169,7 @@
               "id": "r1",
               "name": "mapa_fluxos",
               "type": "object",
-              "value": "={{ { \"rknQJI9bMjaNjnuUziSN\": \"<URL_UNNICHAT_COMPRA_APROVADA>\", \"rjJkwWreyVXnn7hYgG85\": \"<URL_UNNICHAT_MEAL_PREP>\" } }}"
+              "value": "={{ { \"rknQJI9bMjaNjnuUziSN\": \"<URL_UNNICHAT_COMPRA_APROVADA>\", \"rjJkwWreyVXnn7hYgG85\": \"<URL_UNNICHAT_MEAL_PREP>\", \"aIbhQ9f2JP4OHInCx8Cq\": \"<URL_UNNICHAT_MEAL_PREP>\" } }}"
             }
           ]
         }

@@ -97,6 +97,7 @@ Produto fora do mapa não repassa (sai sem erro). Mapa atual:
 |---|---|---|
 | `rknQJI9bMjaNjnuUziSN` | Ultra Black vitalícia | Compra Aprovada BF26 (`<URL_UNNICHAT_COMPRA_APROVADA>`) |
 | `rjJkwWreyVXnn7hYgG85` | Meal Prep Express + Regina IA | fluxo próprio desde 05/11/2026 (`<URL_UNNICHAT_MEAL_PREP>`) |
+| `aIbhQ9f2JP4OHInCx8Cq` | Meal Prep Express (produto novo, ofertas 397 e 497) | mesmo fluxo do Meal Prep, [HUBLA] Compra Aprovada - Meal Prep Express + Regina IA (`<URL_UNNICHAT_MEAL_PREP>`), desde 05/11/2026 |
 
 Produto novo com fluxo: acrescentar a linha no "Config repasse" e publicar.
 
