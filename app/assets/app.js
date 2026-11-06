@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-06a';
-  var MUDANCAS = 'Minha página: todos os cupons de cada link (um por linha, com botão de copiar)';
+  var BUILD = '2026-11-06b';
+  var MUDANCAS = 'Menu lateral recolhível; Home com cards do período, hoje e ontem, venda por produto e oferta, e tabela dia a dia';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -194,7 +194,9 @@
       ic.className = 'ic';
       icone(ic, m);
       var tx = document.createElement('span');
+      tx.className = 'menu-txt';
       tx.textContent = TELAS[m].rotulo;
+      a.title = TELAS[m].rotulo;
       a.appendChild(ic);
       a.appendChild(tx);
       nav.appendChild(a);
@@ -352,35 +354,89 @@
   // ---------- Home (admin) ----------
   function telaHome(alvo, id) {
     carregando(alvo);
-    var ini = mesAtual(), hoje = hojeSP();
-    sb.rpc('cic_home', { p_inicio: ini, p_fim: hoje }).then(function (r) {
-      if (id !== pedido) return;
-      if (r.error) return falhou(alvo, r.error);
-      var d = r.data, s = d.serie || [];
-      var soma = function (lista, k) { return lista.reduce(function (a, x) { return a + (Number(x[k]) || 0); }, 0); };
-      var dia = s.filter(function (x) { return x.dia === hoje; });
-      var c = d.conversao || {};
-      var card = function (titulo, lista, extra) {
-        var vl = soma(lista, 'liquido'), rl = soma(lista, 'reembolsos');
-        var vq = soma(lista, 'vendas_qtd'), rq = soma(lista, 'reembolsos_qtd');
-        return '<div class="kpi-grupo"><h3>' + esc(titulo) + '</h3><div class="kpis">' +
-          kpi('Líquido do comercial', rs(vl - rl), 'bruto ' + rs(soma(lista, 'bruto')), true) +
-          kpi('Vendas', num(vq), rs(vl) + ' em vendas') +
-          kpi('Reembolsos', num(rq), rq ? rs(rl) + ' abatidos' : 'nenhum') + (extra || '') + '</div></div>';
-      };
-      var prod = (d.produtos || []).map(function (p) {
-        return [esc(p.produto), num(p.vendas_qtd), rs(p.bruto), '<strong>' + rs(p.liquido) + '</strong>'];
+    if (id !== pedido) return;
+    var corpo = barraFiltro(alvo, carregar, false, true);
+    carregar(id);
+    function carregar(idc) {
+      corpo.innerHTML = '<p class="painel-msg">Carregando...</p>';
+      sb.rpc('cic_home', { p_inicio: filtro.ini, p_fim: filtro.fim }).then(function (r) {
+        if (idc !== pedido) return;
+        if (r.error) return falhou(corpo, r.error);
+        corpo.innerHTML = montaHome(r.data || {}, corpo.clientWidth);
       });
-      alvo.innerHTML =
-        card('Hoje · ' + ddmm(hoje), dia) +
-        card('Mês · ' + nomeMes(ini), s, kpi('Conversão do time', pct(c.taxa),
-          num(c.vendas_comercial) + ' vendas · ' + num(c.contatos) + ' contatos em "2. Em Contato" ' + convTag(c.taxa, c.alvo))) +
-        bloco('Vendas por dia', 'Líquido das vendas do comercial, por dia da venda.',
-          grafBarras(s, [{ chave: 'liquido', nome: 'Comercial', cor: COR.comercial }], { largura: alvo.clientWidth - 50 })) +
-        bloco('Por produto', 'Vendas do comercial no mês até hoje.', prod.length
-          ? tabela(['Produto', 'Vendas', 'Bruto', 'Líquido'], prod, [1, 2, 3])
-          : '<p class="painel-msg">Sem vendas no período.</p>');
+    }
+  }
+
+  // Card no formato do G2: rótulo, valor, linhas extras e a faixa HOJE / ONTEM
+  function hmCard(rotulo, valor, extras, hoje, ontem, legenda) {
+    return '<div class="hm-card"><div class="hm-lab">' + rotulo + '</div><div class="hm-val">' + valor + '</div>' +
+      (extras ? '<div class="hm-split">' + extras + '</div>' : '') +
+      (hoje !== undefined ? '<div class="hm-ho"><div class="hm-ho-c on"><span>Hoje · parcial</span><b>' + hoje + '</b></div>' +
+        '<div class="hm-ho-c"><span>Ontem</span><b>' + ontem + '</b></div>' + (legenda ? '<div class="hm-ho-cap">' + esc(legenda) + '</div>' : '') + '</div>' : '') +
+      '</div>';
+  }
+  function hmSplit(rotulo, valor) { return '<div>' + esc(rotulo) + '<b>' + valor + '</b></div>'; }
+  function rsOuTraco(v) { return v === null || v === undefined ? '–' : rs(v); }
+
+  function montaHome(d, largura) {
+    var p = d.periodo || {}, h = d.dia_hoje || {}, o = d.dia_ontem || {};
+    var resultado = '<div class="hm-grid">' +
+      hmCard('Faturamento bruto', rs(p.bruto), '', rs(h.bruto), rs(o.bruto)) +
+      hmCard('Faturamento líquido', rs(p.liquido), hmSplit('após reembolso', rs(p.liquido_apos_reembolso)), rs(h.liquido), rs(o.liquido)) +
+      hmCard('Vendas totais', num(p.vendas), '', num(h.vendas), num(o.vendas)) +
+      '<div class="hm-card"><div class="hm-dupla"><div><div class="hm-lab">Ticket médio bruto</div><div class="hm-val">' + rsOuTraco(p.ticket_bruto) + '</div></div>' +
+        '<div><div class="hm-lab">Ticket médio líquido</div><div class="hm-val">' + rsOuTraco(p.ticket_liquido) + '</div></div></div>' +
+        '<div class="hm-ho"><div class="hm-ho-c on"><span>Hoje · parcial</span><b>' + rsOuTraco(h.ticket_liquido) + '</b></div>' +
+        '<div class="hm-ho-c"><span>Ontem</span><b>' + rsOuTraco(o.ticket_liquido) + '</b></div><div class="hm-ho-cap">ticket líquido</div></div></div>' +
+      '</div><div class="hm-grid">' +
+      hmCard('Conversão · Em Contato → Venda', pct(p.conversao), hmSplit('Em Contato', num(p.em_contato)) + hmSplit('Leads', num(p.leads)), pct(h.conversao), pct(o.conversao)) +
+      (d.plataformas || []).map(function (pl) {
+        return hmCard('Faturamento ' + esc(pl.plataforma), rs(pl.liquido), hmSplit('bruto', rs(pl.bruto)) + hmSplit('vendas', num(pl.vendas)));
+      }).join('') +
+      hmCard('Reembolso', rs(p.reembolso), hmSplit('reembolsos no período', num(p.reembolso_qtd)), rs(h.reembolso), rs(o.reembolso)) +
+      '</div>';
+
+    // Venda por produto, com a quebra por oferta
+    var prodLinhas = [];
+    (d.produtos || []).forEach(function (pr) {
+      prodLinhas.push('<tr class="hm-prod"><td><strong>' + esc(pr.produto) + '</strong></td><td class="n">' + num(pr.vendas) + ' <span class="fraco">' + pct(pr.pct_vendas, 0) + '</span></td>' +
+        '<td class="n"><strong>' + rs(pr.liquido) + '</strong> <span class="fraco">' + pct(pr.pct_liquido, 0) + '</span></td>' +
+        '<td class="n">' + rs(pr.ticket_bruto) + '</td><td class="n">' + rs(pr.ticket_liquido) + '</td></tr>');
+      (pr.ofertas || []).forEach(function (of) {
+        prodLinhas.push('<tr class="hm-oferta"><td>' + esc(of.oferta) + '</td><td class="n">' + num(of.vendas) + ' <span class="fraco">' + pct(of.pct_vendas, 0) + '</span></td>' +
+          '<td class="n">' + rs(of.liquido) + ' <span class="fraco">' + pct(of.pct_liquido, 0) + '</span></td>' +
+          '<td class="n">' + rs(of.ticket_bruto) + '</td><td class="n">' + rs(of.ticket_liquido) + '</td></tr>');
+      });
     });
+    var produtos = prodLinhas.length
+      ? '<div class="tabela-rolagem"><table class="tabela lista"><thead><tr><th>Produto / oferta</th><th class="n">Vendas</th><th class="n">Faturamento líquido</th>' +
+        '<th class="n">Ticket bruto</th><th class="n">Ticket líquido</th></tr></thead><tbody>' + prodLinhas.join('') + '</tbody></table></div>'
+      : '<p class="painel-msg vazio">Nenhuma venda no período.</p>';
+
+    // Dia a dia (mês da data final)
+    var m = d.matriz || {}, dias = m.dias || [], t = m.total || {};
+    var linhas = [
+      ['Leads', function (x) { return num(x.leads); }],
+      ['Em Contato', function (x) { return num(x.em_contato); }],
+      ['Conversão', function (x) { return x.conversao == null ? '–' : pct(x.conversao); }],
+      ['Vendas', function (x) { return num(x.vendas); }],
+      ['Ticket médio', function (x) { return x.ticket_liquido == null ? '–' : rs(x.ticket_liquido).replace(/^R\$\s?/, ''); }],
+      ['Faturamento', function (x) { return rs(x.liquido).replace(/^R\$\s?/, ''); }]
+    ];
+    var classe = function (x) { return (x.util ? '' : ' fds') + (x.parcial ? ' hoje' : ''); };
+    var matriz = '<div class="tabela-rolagem"><table class="tabela matriz"><thead><tr><th></th>' +
+      dias.map(function (x) {
+        return '<th class="n' + classe(x) + '" title="' + esc(x.feriado || (x.util ? '' : 'fim de semana')) + '">' + x.dia.slice(8, 10) +
+          '<span>' + diaSemana(x.dia) + (x.parcial ? ' · parcial' : '') + '</span></th>';
+      }).join('') + '<th class="n total">TOTAL</th></tr></thead><tbody>' +
+      linhas.map(function (l) {
+        return '<tr><th>' + l[0] + '</th>' + dias.map(function (x) { return '<td class="n' + classe(x) + '">' + l[1](x) + '</td>'; }).join('') +
+          '<td class="n total">' + l[1](t) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+
+    return '<div class="hm-sec"><h2>Resultado</h2><small>' + periodoTxt() + ' · só comercial</small></div>' + resultado +
+      bloco('Venda por produto', 'Vendas do comercial no período, com a quebra por oferta. % sobre o total do período.', produtos) +
+      bloco('Dia a dia · ' + (m.mes ? nomeMes(m.mes) : ''), 'Mês da data final do filtro. Fim de semana e feriado sombreados; hoje é parcial. TOTAL conta cada pessoa uma vez no mês. Valores em R$, líquido.', matriz);
   }
 
   // ---------- Meta do mês (admin) ----------
@@ -979,6 +1035,20 @@
 
   $('btn-sair').addEventListener('click', sair);
   $('sair-sem-acesso').addEventListener('click', sair);
+  // Menu lateral recolhível (desktop). Sem storage, abre expandido.
+  function aplicaRecolhido(sim) {
+    $('lateral').classList.toggle('recolhida', sim);
+    $('lat-recolher').textContent = sim ? '›' : '‹';
+    $('lat-recolher').title = sim ? 'Expandir menu' : 'Recolher menu';
+    $('lat-recolher').setAttribute('aria-label', $('lat-recolher').title);
+  }
+  aplicaRecolhido(ler('cic-menu-recolhido') === '1');
+  $('lat-recolher').addEventListener('click', function () {
+    var sim = !$('lateral').classList.contains('recolhida');
+    aplicaRecolhido(sim);
+    guardar('cic-menu-recolhido', sim ? '1' : '0');
+  });
+
   $('btn-menu').addEventListener('click', function () {
     var aberta = $('lateral').classList.toggle('aberta');
     $('btn-menu').setAttribute('aria-expanded', aberta ? 'true' : 'false');
