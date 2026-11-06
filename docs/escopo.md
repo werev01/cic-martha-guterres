@@ -225,6 +225,21 @@ Links de venda na Minha página, cada um com o cupom e botão de copiar
 - Família de automação (06/11): copy sem o número de versão final (`_1.0.1`), só copies
   que não são campanha de broadcast. Mesmas métricas de CRM da campanha.
 
+## Regras gerais de contagem (decidido em 06/11/2026, auditoria)
+
+- Ganho e perda contam por negócio: um `negocio_id` com o mesmo won/lost repetido (a
+  automação do Unnichat dispara de novo, segundos depois) vale uma vez, pelo evento mais
+  antigo, inclusive o motivo da perda. Linha bruta não é apagada. Ganho é sempre a venda
+  paga na Hubla; nenhuma tela conta o status won do CRM.
+- Dias úteis: toda conta "por dia útil" (média de vendas por dia, projeção da Meta do mês e
+  da Minha página, reta das metas no burn-up, tendência) conta dias úteis a partir da 1ª
+  venda comercial do mês. Em novembro/2026 a 1ª venda foi em 04/11, então 03/11 não conta.
+  Mês ainda sem venda comercial: nada decorrido e projeção vazia; a reta da meta usa o mês
+  inteiro.
+- Vendedor inativo com atividade no período (evento de CRM, conversa ou venda) aparece no
+  Desempenho, na Taxa de passagem (filtro), em Motivos de perda e no Ciclo, com a etiqueta
+  "inativo". Continua sem link de venda e sem login.
+
 ## Desempenho individual e Minha página (decidido em 06/11/2026)
 
 - Desempenho individual (só admin): tabela por vendedor ativo ordenada pelo faturamento
