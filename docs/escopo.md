@@ -145,15 +145,15 @@ Regras:
   (hoje incluso), projetado até o fim do mês. Falta por dia útil usa os dias úteis
   depois de hoje.
 
-## Ofertas e cupons vigentes (05/11/2026)
+## Ofertas e cupons vigentes (06/11/2026)
 
 Links de venda na Minha página, cada um com o cupom e botão de copiar
-(`links_venda`, `cic_meus_links()`):
+(`links_venda`, `links_venda_cupons`, `cic_meus_links()`). Um link pode ter vários cupons:
 
 | Produto | Oferta | Cupom |
 |---|---|---|
-| Ultra Black 2026 | Aluno | 5OFF (5%) |
-| Ultra Black 2026 | Não Aluno | 5OFF (5%) |
+| Ultra Black 2026 | Aluno | 5OFF (5%) e 10CONTO (10%) |
+| Ultra Black 2026 | Não Aluno | 5OFF (5%) e 10CONTO (10%) |
 | Meal Prep Express | 397 | DEZCONTO (10%) |
 | Meal Prep Express + Regina IA | 497 | DEZCONTO (10%) |
 
