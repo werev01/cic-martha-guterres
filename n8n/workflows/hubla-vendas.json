@@ -187,7 +187,7 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "// Resolve o fluxo do Unnichat pelo product_id da Hubla (mapa em 'Config repasse').\n// Produto fora do mapa não repassa: o item sai daqui sem erro e o caminho termina.\nreturn $input.all()\n  .filter(i => (i.json.mapa_fluxos || {})[i.json.product_id])\n  .map(i => { const { mapa_fluxos, ...r } = i.json; return { json: { ...r, unnichat_url: mapa_fluxos[i.json.product_id] } }; });"
+        "jsCode": "// Resolve o fluxo do Unnichat pelo produto da Hubla (mapa em 'Config repasse').\n// A Hubla pode mandar ids diferentes em event.product.id (gravado como product_id)\n// e em event.products[].id (produto novo de 06/11). Testa o product_id e todos os\n// products[].id contra o mapa; vale o primeiro que estiver lá.\n// Produto fora do mapa não repassa: o item sai daqui sem erro e o caminho termina.\nreturn $input.all().flatMap(i => {\n  const { mapa_fluxos, ...r } = i.json;\n  const mapa = mapa_fluxos || {};\n  const prods = (((r.raw_payload || {}).event || {}).products);\n  const ids = [r.product_id].concat(Array.isArray(prods) ? prods.map(p => p && p.id) : []).filter(Boolean);\n  const id = ids.find(x => mapa[x]);\n  return id ? [{ json: { ...r, unnichat_url: mapa[id], produto_repasse: id } }] : [];\n});"
       }
     },
     {
