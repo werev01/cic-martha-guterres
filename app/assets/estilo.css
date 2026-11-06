@@ -452,3 +452,14 @@ input { font: inherit; }
   .hm-grid { grid-template-columns: 1fr; }
   .hm-val { font-size: 20px; }
 }
+
+/* Mensageria: campanhas expansíveis e linha do gráfico (06/11/2026) */
+.legenda i.leg-linha { height: 3px; width: 16px; vertical-align: 3px; }
+.tabela-camp tr.camp { cursor: pointer; }
+.tabela-camp tr.camp:hover td { background: rgba(31, 43, 56, .04); }
+.tabela-camp tr.camp:focus-visible { outline: 2px solid var(--navy); outline-offset: -2px; }
+.tabela-camp .seta { display: inline-block; flex: 0 0 14px; width: 14px; line-height: 1.4; transition: transform .15s; color: var(--texto-2); }
+.tabela-camp tr.camp[aria-expanded="true"] .seta { transform: rotate(90deg); }
+.tabela-camp tr.lote td { background: rgba(31, 43, 56, .025); font-size: 12.5px; }
+.tabela-camp tr.lote td:first-child { padding-left: 28px; }
+.tabela-camp .camp-nome { display: flex; gap: 4px; align-items: flex-start; min-width: 200px; }
