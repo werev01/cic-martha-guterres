@@ -39,6 +39,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261106_0019_home_cards.sql` | `cic_home` nova (cards do período, hoje e ontem, plataformas, produtos com ofertas, matriz dia a dia); interna `cic_kpis_comercial`; `cic_contatos_em_contato` conta pessoa pela chave do telefone |
 | `20261106_0020_meta_burnup_funil.sql` | `cic_meta_funil` (só admin): burn-up do mês e matriz realizado por funil (dias, semanas e mês) |
 | `20261106_0021_mensageria_campanhas.sql` | `cic_mensageria` refeita: cliques, bloqueios, `custo_dia`, `campanhas` com lotes e KPIs do CRM, `familias`; sai `copy` e `broadcasts` |
+| `20261106_0022_desempenho_minha_pagina.sql` | `cic_desempenho` refeita (ticket, média de vendas por dia útil, LRT mediana e >24 h), `cic_minha_pagina` (burn da comissão, projeção, insights), interna `cic_lrt`, `cic_config.insights` |
 
 ## Camada tratada (RPCs do app)
 
@@ -54,7 +55,8 @@ Regras em `escopo.md` (CIC fase 1). Todas `security definer`, `stable`,
 | `cic_lista_vendas(p_inicio, p_fim)` | admin: todos os vendedores; vendedor: só as dele; sem perfil: vazio | uma linha por venda válida com vendedor: data e hora (SP), cliente, telefone (`+55...`), vendedor, produto, oferta, bruto, líquido, reembolsada e data do reembolso; mais recente primeiro |
 | `cic_lista_reembolsos(p_inicio, p_fim)` | idem | uma linha por reembolso efetivado de venda com vendedor: data do reembolso e da venda, cliente, telefone, vendedor, produto, líquido abatido |
 
-| `cic_desempenho(p_inicio, p_fim, p_vendedor)` | só admin | por vendedor ativo: vendas e líquido (Hubla), nível/comissão do mês de `p_inicio`, entradas por etapa 0 a 4, perdas comerciais, contatos, conversão, mensagens e templates do vendedor |
+| `cic_desempenho(p_inicio, p_fim, p_vendedor)` | só admin | por vendedor ativo: vendas e líquido (Hubla), nível/comissão do mês de `p_inicio`, entradas por etapa 0 a 4, perdas comerciais, contatos, conversão, mensagens e templates do vendedor; desde a 0022 também `ticket`, `media_dia`, `dias_uteis`, `lrt_mediana`, `lrt_n`, `lrt_mais24`, ordenado por líquido |
+| `cic_minha_pagina(p_mes, p_vendedor)` | vendedor: só ele (parâmetro ignorado); admin: escolhe | jsonb: números do mês, `burn` (líquido acumulado por dia, vendas − reembolsos, até hoje), `projecao` (ritmo de dia útil), `niveis`, `alvos` (de `cic_config`), `tendencia` (mês anterior cortado no mesmo dia, a partir de `insights.tendencia_desde`) |
 | `cic_taxa_passagem(p_inicio, p_fim, p_vendedor)` | só admin | por etapa 0 a 4: entraram, passaram (etapa posterior ou venda), %, perdidos parados, vendas, abertos; `p_vendedor` = slug, `_sem` ou nulo (time) |
 | `cic_motivos_perda(p_inicio, p_fim, p_vendedor)` | só admin | linhas por tipo (comercial/cs), grupo, motivo, vendedor e etapa da perda, com quantidade |
 | `cic_ciclo_venda(p_inicio, p_fim, p_vendedor)` | só admin | por tipo (venda/perda) e vendedor, mais a linha `_time`: casos, mediana e média em horas, faixas (até 1 dia, 1 a 3, 3 a 7, mais de 7) e `sem_historico` (desfecho a menos de 6 min da entrada, fora da conta) |
