@@ -35,6 +35,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261105_0015_gestao.sql` | telas de gestão: `cic_desempenho`, `cic_taxa_passagem`, `cic_motivos_perda`, `cic_ciclo_venda` (só admin); internas `cic_negocios`, `cic_fone_chave`; motivo "[2] Já é cliente" sem o CMP; Daniel Godoy vendedor (segue admin) |
 | `20261105_0016_mensageria.sql` | `cic_mensageria` (só admin, custo estimado de WhatsApp do comercial) e internas `cic_preco_whatsapp`, `cic_servico_dia` |
 | `20261105_0017_cupons_links.sql` | `cupom` e `cupom_desconto` em `links_venda` (5OFF no Ultra Black, DEZCONTO no Meal Prep); `cic_meus_links()` devolve os dois |
+| `20261106_0018_cupons_multiplos.sql` | cupons saem de `links_venda` e vão pra `links_venda_cupons` (vários por link); 10CONTO no Ultra Black; `cic_meus_links()` devolve `cupons jsonb` |
 
 ## Camada tratada (RPCs do app)
 
@@ -76,7 +77,8 @@ refunded/chargeback não muda mais. Overdue/unpaid virando paid continua passand
 |---|---|---|
 | `cic_config` | `chave` | slug, nome, fuso, `tmb_fator_valor` = 0,5 (provisório), `utm_vendedor` (utm_source + `comercial_`), `conversao_alvo` (15% a partir da etapa 2) |
 | `vendedores` | `utm_slug` | 4 vendedores (`comercial_nome-sobrenome`, igual ao `utm_source` dos links) |
-| `links_venda` | `id` | link base por oferta, com `cupom` e `cupom_desconto`. Ativos: Ultra Black 2026 (Aluno, Não Aluno; 5OFF 5%), Meal Prep Express (397) e Meal Prep Express + Regina IA (497) (DEZCONTO 10%); todos Hubla. O link de cada vendedor (e o cupom) sai de `cic_meus_links()`; vendedor inativo não recebe link |
+| `links_venda` | `id` | link base por oferta. Ativos: Ultra Black 2026 (Aluno, Não Aluno), Meal Prep Express (397) e Meal Prep Express + Regina IA (497); todos Hubla. O link de cada vendedor (com os cupons) sai de `cic_meus_links()`; vendedor inativo não recebe link |
+| `links_venda_cupons` | `id` (único `link_id, cupom`) | cupons de cada link, vários por link, com `desconto`, `ordem` e `ativo`. Hoje: 5OFF (5%) e 10CONTO (10%) no Ultra Black; DEZCONTO (10%) no Meal Prep |
 | `perfis` | `email` | 4 admins + 4 vendedores; `user_id` se preenche sozinho quando o usuário é criado no Auth |
 | `perfil_menus` | `papel, menu` | admin: 11 menus; vendedor: minhapagina, relatorios, reembolsos |
 | `crm_etapas` | `ordem` | 0 a 4, com o nome exato do Unnichat |
@@ -103,10 +105,17 @@ insert into perfis (email, nome, papel, vendedor_slug) values ('email@x.com', 'N
 select vendedor_nome, rotulo, url from cic_meus_links();
 
 -- Link novo de produto (todo vendedor ganha o seu na hora)
-insert into links_venda (produto, rotulo, url_base, ordem, cupom, cupom_desconto) values ('Produto', 'Opção 3', 'https://pay.hub.la/XXXX', 3, 'CUPOM', '5%');
+insert into links_venda (produto, rotulo, url_base, ordem) values ('Produto', 'Opção 3', 'https://pay.hub.la/XXXX', 3);
 
--- Trocar o cupom de um produto
-update links_venda set cupom = 'NOVO', cupom_desconto = '10%' where produto = 'Produto';
+-- Cupom novo em todos os links ativos de um produto (entra depois dos que já existem)
+insert into links_venda_cupons (link_id, cupom, desconto, ordem)
+select l.id, 'NOVO10', '10%', coalesce((select max(c.ordem) from links_venda_cupons c where c.link_id = l.id), 0) + 1
+from links_venda l where l.produto = 'Ultra Black 2026' and l.ativo
+on conflict (link_id, cupom) do nothing;
+
+-- Tirar um cupom de circulação (some da Minha página na hora, sem apagar)
+update links_venda_cupons set ativo = false
+where cupom = 'NOVO10' and link_id in (select id from links_venda where produto = 'Ultra Black 2026');
 
 -- Desligar alguém (perde o acesso na hora, sem apagar histórico)
 update perfis set ativo = false where email = 'email@x.com';
