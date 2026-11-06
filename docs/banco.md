@@ -38,6 +38,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261106_0018_cupons_multiplos.sql` | cupons saem de `links_venda` e vão pra `links_venda_cupons` (vários por link); 10CONTO no Ultra Black; `cic_meus_links()` devolve `cupons jsonb` |
 | `20261106_0019_home_cards.sql` | `cic_home` nova (cards do período, hoje e ontem, plataformas, produtos com ofertas, matriz dia a dia); interna `cic_kpis_comercial`; `cic_contatos_em_contato` conta pessoa pela chave do telefone |
 | `20261106_0020_meta_burnup_funil.sql` | `cic_meta_funil` (só admin): burn-up do mês e matriz realizado por funil (dias, semanas e mês) |
+| `20261106_0021_mensageria_campanhas.sql` | `cic_mensageria` refeita: cliques, bloqueios, `custo_dia`, `campanhas` com lotes e KPIs do CRM, `familias`; sai `copy` e `broadcasts` |
 
 ## Camada tratada (RPCs do app)
 
@@ -58,7 +59,7 @@ Regras em `escopo.md` (CIC fase 1). Todas `security definer`, `stable`,
 | `cic_motivos_perda(p_inicio, p_fim, p_vendedor)` | só admin | linhas por tipo (comercial/cs), grupo, motivo, vendedor e etapa da perda, com quantidade |
 | `cic_ciclo_venda(p_inicio, p_fim, p_vendedor)` | só admin | por tipo (venda/perda) e vendedor, mais a linha `_time`: casos, mediana e média em horas, faixas (até 1 dia, 1 a 3, 3 a 7, mais de 7) e `sem_historico` (desfecho a menos de 6 min da entrada, fora da conta) |
 
-| `cic_mensageria(p_inicio, p_fim)` | só admin | jsonb: `resumo` (entregues, lidos, falhas, taxas, custo total com franquia, custo por origem, serviço bruto, franquia, custo por venda), `por_categoria`, `broadcasts`, `automacoes`, `vendedores`, `copy`, `preco` (fonte e vigência) |
+| `cic_mensageria(p_inicio, p_fim)` | só admin | jsonb: `resumo` (entregues, lidos, falhas, taxas, custo total com franquia, custo por origem, serviço bruto, franquia, custo por venda), `por_categoria`, `custo_dia`, `campanhas` (com `lotes`), `automacoes` (com cliques), `familias`, `vendedores`, `preco` (fonte e vigência). Resumo inclui cliques e bloqueios |
 
 | `cic_meta_funil(p_mes)` | só admin | jsonb: `metas`, `burn[]` (por dia: bronze, prata e ouro acumulados por dia útil, realizado acumulado até hoje = líquido − reembolsos), `funis[]`, `colunas[]` (dia, semana segunda a domingo cortada no mês, mês; cada uma com `funis{}` e `total`: leads, Em Contato, vendas, líquido, conversão, ticket) |
 

@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-06c';
-  var MUDANCAS = 'Meta do mês: burn-up (bronze, prata e ouro x realizado) e matriz realizado por funil; sai o gráfico por dia e o ranking';
+  var BUILD = '2026-11-06d';
+  var MUDANCAS = 'Mensageria: cliques e bloqueios, custo por dia, broadcasts por campanha com lotes, automações por família; sai o painel por copy';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -251,6 +251,11 @@
   }
   function num(v) { return (Number(v) || 0).toLocaleString('pt-BR'); }
   function ddmm(d) { return d.slice(8, 10) + '/' + d.slice(5, 7); }
+  // timestamp -> "06/11 16:00" no fuso de São Paulo
+  function dataHora(ts) {
+    if (!ts) return '–';
+    return new Date(ts).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '');
+  }
   function esc(t) {
     return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -281,8 +286,9 @@
     var n = dados.length;
     if (!n) return '<p class="painel-msg">Sem dados no período.</p>';
     // largura real do bloco: texto do eixo fica legível no celular
+    var L = opc.linha, mD = L ? 56 : 8;
     var W = Math.max(300, Math.min(760, Math.round(opc.largura || 760))), H = W < 500 ? 200 : 220, mE = 74, mB = 26, mT = 10;
-    var larg = (W - mE - 8) / n, barra = Math.max(4, Math.min(28, larg * 0.62));
+    var larg = (W - mE - mD) / n, barra = Math.max(4, Math.min(28, larg * 0.62));
     var totais = dados.map(function (d) { return series.reduce(function (s, x) { return s + (Number(d[x.chave]) || 0); }, 0); });
     var max = Math.max.apply(null, totais.concat([1]));
     // escala "redonda": 4 faixas de 1, 2, 2,5, 3, 4, 5, 6 ou 8 x 10^n
@@ -290,16 +296,25 @@
     var passo = [1, 2, 2.5, 3, 4, 5, 6, 8, 10].map(function (k) { return k * ordem; }).filter(function (k) { return k >= bruto; })[0];
     var topo = passo * 4;
     var y = function (v) { return mT + (H - mT - mB) * (1 - v / topo); };
+    // eixo da direita (linha): mesma escala redonda, em quantidade
+    if (L) {
+      var maxL = Math.max.apply(null, dados.map(function (d) { return Number(d[L.chave]) || 0; }).concat([1]));
+      var brL = maxL / 4, orL = Math.pow(10, Math.floor(Math.log10(brL)));
+      var passoL = [1, 2, 2.5, 3, 4, 5, 6, 8, 10].map(function (k) { return k * orL; }).filter(function (k) { return k >= brL; })[0];
+      var yL = function (v) { return mT + (H - mT - mB) * (1 - v / (passoL * 4)); };
+    }
     var svg = '<svg class="grafico" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opc.rotulo || 'Gráfico diário') + '">';
     for (var g = 0; g <= 4; g++) {
       var vg = passo * g, yg = y(vg);
-      svg += '<line x1="' + mE + '" x2="' + W + '" y1="' + yg + '" y2="' + yg + '" class="g-grade"/>' +
+      svg += '<line x1="' + mE + '" x2="' + (W - mD + 8) + '" y1="' + yg + '" y2="' + yg + '" class="g-grade"/>' +
         '<text x="' + (mE - 8) + '" y="' + (yg + 4) + '" class="g-eixo" text-anchor="end">' + esc(rsCurto(vg)) + '</text>';
+      if (L) svg += '<text x="' + (W - mD + 14) + '" y="' + (yg + 4) + '" class="g-eixo">' + esc(num(passoL * g)) + '</text>';
     }
     var cadaRotulo = Math.max(1, Math.ceil(n / Math.floor((W - mE) / 26)));
     dados.forEach(function (d, i) {
       var x = mE + larg * i + (larg - barra) / 2, base = 0;
-      var dica = ddmm(d.dia) + ': ' + series.map(function (s) { return s.nome + ' ' + rs(d[s.chave]); }).join(' · ');
+      var dica = ddmm(d.dia) + ': ' + series.map(function (s) { return s.nome + ' ' + rs(d[s.chave]); }).join(' · ') +
+        (L ? ' · ' + L.nome + ' ' + num(d[L.chave]) : '');
       svg += '<g><title>' + esc(dica) + '</title>';
       series.forEach(function (s) {
         var v = Number(d[s.chave]) || 0;
@@ -314,10 +329,15 @@
         svg += '<text x="' + (mE + larg * i + larg / 2).toFixed(1) + '" y="' + (H - 8) + '" class="g-eixo" text-anchor="middle">' + ddmm(d.dia).slice(0, 2) + '</text>';
       }
     });
+    if (L) {
+      var pts = dados.map(function (d, i) { return (mE + larg * i + larg / 2).toFixed(1) + ',' + yL(Number(d[L.chave]) || 0).toFixed(1); });
+      svg += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + L.cor + '" stroke-width="2" pointer-events="none"/>' +
+        pts.map(function (p) { var c = p.split(','); return '<circle cx="' + c[0] + '" cy="' + c[1] + '" r="3" fill="' + L.cor + '" pointer-events="none"/>'; }).join('');
+    }
     svg += '</svg>';
-    var leg = series.length > 1 ? '<div class="legenda">' + series.map(function (s) {
+    var leg = series.length > 1 || L ? '<div class="legenda">' + series.map(function (s) {
       return '<span><i style="background:' + s.cor + '"></i>' + esc(s.nome) + '</span>';
-    }).join('') + '</div>' : '';
+    }).join('') + (L ? '<span><i class="leg-linha" style="background:' + L.cor + '"></i>' + esc(L.nome) + ' (eixo da direita)</span>' : '') + '</div>' : '';
     return leg + svg;
   }
 
@@ -949,7 +969,9 @@
           kpi('Custo por venda', reais(re.custo_por_venda), plural(re.vendas_comercial || 0, 'venda', 'vendas') + ' do comercial') +
           kpi('Templates entregues', num(re.templates_entregues), num(re.templates_enviados) + ' enviados · ' + num(re.falhas) + ' falhas') +
           kpi('Entrega', pct(re.taxa_entrega), 'entregues ÷ enviados') +
-          kpi('Leitura', pct(re.taxa_leitura), num(re.lidos) + ' lidos') + '</div>';
+          kpi('Leitura', pct(re.taxa_leitura), num(re.lidos) + ' lidos') +
+          kpi('Cliques', pct(re.taxa_cliques), num(re.cliques) + ' cliques únicos · só automações') +
+          kpi('Bloqueios', num(re.bloqueios), pct(re.taxa_bloqueios) + ' dos entregues · ' + num(re.bloqueios_com_copy) + ' com copy') + '</div>';
         var origem = barrasH([
           { rotulo: 'Broadcasts', valor: re.custo_broadcast || 0, cor: COR.comercial },
           { rotulo: 'Automações', valor: re.custo_automacao || 0, cor: COR.automacao },
@@ -960,19 +982,47 @@
         var sessao = '<p class="fraco nota">Serviço (mensagem que não é template): ' + num(re.servico_msgs) + ' no período, ' + reais(re.custo_servico_bruto) +
           ' brutos. Franquia de 1.000 por mês: ' + num(re.franquia_msgs) + ' usadas no período, desconto de ' + reais(re.franquia_desconto) +
           ' no total (não rateado). Custo por origem é bruto, antes da franquia.</p>';
-        var bcs = (d.broadcasts || []).map(function (b) {
-          return ['<div class="nome-longo">' + esc(String(b.nome).replace(/^COMERCIAL_/i, '')) + '</div>', ddmm(b.dia), num(b.contatos), num(b.enviados), num(b.entregues), num(b.lidos), num(b.falhas),
-            esc(b.template || '–') + (b.categoria ? '<div class="fraco">' + esc(b.categoria) + '</div>' : ''), '<strong>' + reais(b.custo) + '</strong>'];
-        });
+        var porDia = grafBarras(d.custo_dia || [], [
+          { chave: 'broadcast', nome: 'Broadcasts', cor: COR.comercial },
+          { chave: 'vendedor', nome: 'Vendedores', cor: COR.vendedor },
+          { chave: 'automacao', nome: 'Automações', cor: COR.automacao }],
+          { largura: corpo.clientWidth - 40, rotulo: 'Custo de WhatsApp por dia', linha: { chave: 'templates', nome: 'Templates entregues', cor: '#c49a3a' } });
+        var semCli = '<span class="fraco" title="A API do Unnichat não informa cliques de broadcast">–</span>';
+        // % só quando a cabe em b (E2 pode vir de lead que entrou antes do período)
+        var de = function (a, b) { return Number(b) > 0 && Number(a) <= Number(b) ? '<div class="fraco">' + pct(a / b) + '</div>' : ''; };
+        var custoPor = function (c, q) { return Number(q) > 0 ? rs(c / q) : '–'; };
+        var linhasCamp = (d.campanhas || []).map(function (c, i) {
+          var cab = '<tr class="camp" data-camp="' + i + '" tabindex="0" aria-expanded="false">' +
+            '<td><div class="camp-nome"><span class="seta">▸</span><div><div class="nome-longo">' + esc(c.campanha) + '</div><div class="fraco">' + plural(c.broadcasts, 'lote', 'lotes') + '</div></div></div></td>' +
+            '<td>' + dataHora(c.ultimo) + '</td><td class="n">' + num(c.contatos) + '</td><td class="n">' + num(c.entregues) + '</td>' +
+            '<td class="n">' + num(c.lidos) + de(c.lidos, c.entregues) + '</td><td class="n">' + semCli + '</td><td class="n">' + num(c.falhas) + '</td>' +
+            '<td class="n"><strong>' + reais(c.custo) + '</strong></td>' +
+            '<td class="n">' + num(c.leads_e0) + '<div class="fraco">' + custoPor(c.custo, c.leads_e0) + '/lead</div></td>' +
+            '<td class="n">' + num(c.leads_e2) + de(c.leads_e2, c.leads_e0) + '</td>' +
+            '<td class="n">' + num(c.vendas) + (Number(c.vendas) > 0 ? '<div class="fraco">' + custoPor(c.custo, c.vendas) + '/venda</div>' : '') + '</td>' +
+            '<td class="n">' + num(c.bloqueios) + de(c.bloqueios, c.entregues) + '</td></tr>';
+          return cab + (c.lotes || []).map(function (l) {
+            var lt = (String(l.nome).match(/_(\d+_LT\d+)$/i) || [])[1];
+            return '<tr class="lote" data-de="' + i + '" hidden><td><div class="nome-longo">' + esc(lt ? lt.replace('_', ' · ') : l.nome) + '</div>' +
+              '<div class="fraco">' + esc(l.template || '–') + (l.categoria ? ' · ' + esc(l.categoria) : '') + '</div></td>' +
+              '<td>' + dataHora(l.disparo) + '</td><td class="n">' + num(l.contatos) + '</td><td class="n">' + num(l.entregues) + '</td>' +
+              '<td class="n">' + num(l.lidos) + de(l.lidos, l.entregues) + '</td><td class="n">' + semCli + '</td><td class="n">' + num(l.falhas) + '</td>' +
+              '<td class="n">' + reais(l.custo) + '</td><td colspan="4"></td></tr>';
+          }).join('');
+        }).join('');
+        var cabCamp = ['Campanha', 'Último disparo', 'Contatos', 'Entregues', 'Lidos', 'Cliques', 'Falhas', 'Custo', 'Leads (E0)', 'Em contato (E2)', 'Vendas', 'Bloqueios'];
+        var tabCamp = '<div class="tabela-rolagem"><table class="tabela tabela-camp"><thead><tr>' + cabCamp.map(function (c, i) {
+          return '<th' + (i > 1 ? ' class="n"' : '') + '>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' + linhasCamp + '</tbody></table></div>';
         var aus = (d.automacoes || []).map(function (a) {
           return [esc(a.automacao) + '<div class="fraco">' + esc(a.pasta || '') + '</div>', num(a.templates_enviados), num(a.templates_entregues),
+            num(a.lidos) + de(a.lidos, a.templates_entregues), a.taxa_cliques == null ? '–' : pct(a.taxa_cliques) + '<div class="fraco">' + num(a.cliques) + ' cliques</div>',
             num(a.sessao_entregues), esc(a.categoria || '–'), '<strong>' + reais(a.custo) + '</strong>'];
+        });
+        var fams = (d.familias || []).map(function (f) {
+          return [esc(f.familia), num(f.leads_e0), num(f.leads_e2) + de(f.leads_e2, f.leads_e0), num(f.vendas) + de(f.vendas, f.leads_e2), num(f.bloqueios)];
         });
         var vds = (d.vendedores || []).map(function (v) {
           return [pessoa(v.vendedor), num(v.servico), num(v.contatos), num(v.tpl_utl), num(v.tpl_mkt), '<strong>' + reais(v.custo) + '</strong>', num(v.vendas), reais(v.custo_por_venda)];
-        });
-        var cps = (d.copy || []).map(function (c) {
-          return [esc(c.codigo_copy), num(c.contatos), num(c.vendas), num(c.vendas_comercial), pct(c.contatos ? c.vendas / c.contatos : null)];
         });
         var fonte = (d.preco || [])[0];
         var precoTxt = (d.preco || []).map(function (p) {
@@ -981,19 +1031,28 @@
         corpo.innerHTML = cards +
           '<div class="duas">' + bloco('Custo por origem', 'Templates e serviço, antes da franquia.', origem) + bloco('Custo por categoria', 'Entregues x preço da categoria (SERVICE = serviço, antes da franquia).', cat) + '</div>' +
           sessao +
-          bloco('Broadcasts', 'Só os do comercial (prefixo COMERCIAL_ omitido). Custo = templates entregues x preço da categoria + respostas de serviço.', bcs.length
-            ? tabela(['Broadcast', 'Data', 'Contatos', 'Enviados', 'Entregues', 'Lidos', 'Falhas', 'Template', 'Custo'], bcs, [2, 3, 4, 5, 6, 8])
-            : '<p class="painel-msg vazio">Nenhum broadcast no período.</p>') +
-          bloco('Automações', 'Volume do período pela diferença das fotos horárias. Custo = templates + serviço.', aus.length
-            ? tabela(['Automação', 'Templates enviados', 'Entregues', 'Serviço', 'Categoria', 'Custo'], aus, [1, 2, 3, 5])
+          bloco('Custo por dia', 'Barras: custo em R$ por origem, antes da franquia. Linha: templates entregues no dia. Vendedores do dia só entram após a coleta das 23:40.', porDia) +
+          bloco('Broadcasts por campanha', 'Só os do comercial. Clique na campanha para ver os lotes. Leads, em contato, vendas e bloqueios pela copy da campanha no CRM (venda e bloqueio pela última copy antes do fato).', linhasCamp
+            ? tabCamp : '<p class="painel-msg vazio">Nenhum broadcast no período.</p>') +
+          bloco('Automações', 'Volume do período pela diferença das fotos horárias. Cliques únicos ÷ entregues dos passos com botão. Custo = templates + serviço.', aus.length
+            ? tabela(['Automação', 'Templates enviados', 'Entregues', 'Lidos', 'Cliques', 'Serviço', 'Categoria', 'Custo'], aus, [1, 2, 3, 4, 5, 7])
             : '<p class="painel-msg vazio">Nenhum envio de automação no período.</p>') +
+          bloco('Automações por família de copy', 'Copy sem o número da versão. Leads e em contato: pessoas únicas no CRM; venda e bloqueio pela última copy antes do fato.', fams.length
+            ? tabela(['Família', 'Leads (E0)', 'Em contato (E2)', 'Vendas', 'Bloqueios'], fams, [1, 2, 3, 4])
+            : '<p class="painel-msg vazio">Nenhuma copy de automação no período.</p>') +
           bloco('Vendedores', 'Serviço: mensagens enviadas e agendadas pelo vendedor. Custo = serviço + templates do vendedor, antes da franquia.',
             tabela(['Vendedor', 'Serviço', 'Contatos', 'Templates utl', 'Templates mkt', 'Custo', 'Vendas', 'Custo por venda'], vds, [1, 2, 3, 4, 5, 6, 7])) +
-          bloco('Por código de copy', 'Contatos que entraram no CRM com a copy e quantos compraram depois (venda paga na Hubla, casada pelo telefone).', cps.length
-            ? tabela(['Copy', 'Contatos', 'Vendas', 'Do comercial', 'Conversão'], cps, [1, 2, 3, 4])
-            : '<p class="painel-msg vazio">Nenhuma copy no período.</p>') +
           '<p class="rodape-fonte">Custo estimado pelo rate card da Meta (' + (fonte ? esc(fonte.fonte) : 'tabela whatsapp_preco') + ': ' + precoTxt +
           '; serviço com 1.000 grátis por número por mês). A fatura do Unnichat é a referência final.</p>';
+        Array.prototype.forEach.call(corpo.querySelectorAll('tr.camp'), function (tr) {
+          var abre = function () {
+            var on = tr.getAttribute('aria-expanded') !== 'true';
+            tr.setAttribute('aria-expanded', on ? 'true' : 'false');
+            Array.prototype.forEach.call(corpo.querySelectorAll('tr.lote[data-de="' + tr.dataset.camp + '"]'), function (l) { l.hidden = !on; });
+          };
+          tr.addEventListener('click', abre);
+          tr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abre(); } });
+        });
       });
     }
   }
