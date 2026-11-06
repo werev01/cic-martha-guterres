@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-06e';
-  var MUDANCAS = 'Desempenho individual refeito (ranking com participação e cards por vendedor com LRT); Minha página com faturamento da comissão acumulado e insights';
+  var BUILD = '2026-11-06f';
+  var MUDANCAS = 'Dias úteis a partir da 1ª venda comercial do mês; vendedor inativo com atividade nas telas de gestão com etiqueta inativo';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -751,9 +751,9 @@
     var p = String(nome || '').trim().split(/\s+/);
     return ((p[0] || '').charAt(0) + (p.length > 1 ? p[p.length - 1].charAt(0) : '')).toUpperCase();
   }
-  function pessoa(nome) {
+  function pessoa(nome, inativo) {
     if (!nome) return '<span class="pessoa pessoa-sem"><i>–</i>Sem vendedor</span>';
-    return '<span class="pessoa"><i>' + esc(iniciais(nome)) + '</i>' + esc(nome) + '</span>';
+    return '<span class="pessoa"><i>' + esc(iniciais(nome)) + '</i>' + esc(nome) + (inativo ? ' <span class="tag">inativo</span>' : '') + '</span>';
   }
   // +5531999990000 -> +55 31 99999-0000 (outros países ficam como vieram)
   function fone(t) {
@@ -769,7 +769,7 @@
     var opcoes = admin && !semVend ? '<label class="seletor"><span>Vendedor</span><select id="f-vend"><option value="">Todos</option>' +
       (comSem ? '<option value="_sem"' + (filtro.vend === '_sem' ? ' selected' : '') + '>Sem vendedor</option>' : '') +
       (vendedoresCache || []).map(function (v) {
-        return '<option value="' + esc(v.utm_slug) + '"' + (filtro.vend === v.utm_slug ? ' selected' : '') + '>' + esc(v.nome) + '</option>';
+        return '<option value="' + esc(v.utm_slug) + '"' + (filtro.vend === v.utm_slug ? ' selected' : '') + '>' + esc(v.nome) + (v.ativo === false ? ' (inativo)' : '') + '</option>';
       }).join('') + '</select></label>' : '';
     alvo.innerHTML = '<div class="filtro">' +
       '<label class="seletor"><span>De</span><input type="date" id="f-ini" value="' + filtro.ini + '" max="' + hojeSP() + '"></label>' +
@@ -792,7 +792,8 @@
   }
   function comVendedores(feito) {
     if (perfil.papel !== 'admin' || vendedoresCache) return feito();
-    sb.from('vendedores').select('utm_slug,nome').eq('ativo', true).order('nome').then(function (r) {
+    // inativos entram no filtro (etiqueta "inativo"): podem ter atividade no período
+    sb.from('vendedores').select('utm_slug,nome,ativo').order('ativo', { ascending: false }).order('nome').then(function (r) {
       vendedoresCache = r.data || [];
       feito();
     });
@@ -945,7 +946,7 @@
             var rei = i === 0 && Number(l.liquido) > 0;
             var part = total > 0 ? Number(l.liquido) / total : 0;
             var pos = i < 3 ? '<span class="medalha m' + (i + 1) + '" title="' + (i + 1) + 'º lugar">' + (i + 1) + '</span>' : '<span class="rank">#' + (i + 1) + '</span>';
-            return '<tr' + (rei ? ' class="rei"' : '') + '><td><div class="rank-nome">' + pos + pessoa(l.vendedor_nome) +
+            return '<tr' + (rei ? ' class="rei"' : '') + '><td><div class="rank-nome">' + pos + pessoa(l.vendedor_nome, l.vendedor_ativo === false) +
               (rei ? '<span class="selo-rei">' + iconeHTML('coroa') + 'The King</span>' : '') + '</div></td>' +
               '<td class="n"><strong>' + (Number(l.liquido) > 0 ? rs(l.liquido) : '–') + '</strong></td><td class="n">' + num(l.vendas_qtd) + '</td>' +
               '<td class="n">' + (l.ticket == null ? '–' : rs(l.ticket)) + '</td>' +
@@ -957,7 +958,7 @@
           var lrtDica = 'Minutos entre a última entrada em etapa anterior e a primeira entrada em Em Contato do negócio (mediana de ' +
             plural(l.lrt_n, 'negócio', 'negócios') + '). ' + plural(l.lrt_mais24, 'passou', 'passaram') + ' de 24 h.';
           return '<div class="vd-card"><div class="vd-topo"><span class="pessoa"><i>' + esc(iniciais(l.vendedor_nome)) + '</i></span>' +
-            '<div class="vd-id"><div class="vd-nome">' + esc(l.vendedor_nome) + '</div><div class="vd-fat">' + rs(l.liquido) + '</div></div>' +
+            '<div class="vd-id"><div class="vd-nome">' + esc(l.vendedor_nome) + (l.vendedor_ativo === false ? ' <span class="tag">inativo</span>' : '') + '</div><div class="vd-fat">' + rs(l.liquido) + '</div></div>' +
             '<div class="vd-conv">' + pct(l.conversao) + '<span>conversão</span></div></div>' +
             '<div class="vd-bl"><div class="vd-bl-tit">Funil</div>' +
               kv('Leads', num(l.entradas_0)) + kv('Em Contato', num(l.contatos)) +
@@ -1017,6 +1018,8 @@
         var etapaItens = Object.keys(etapas).sort(function (a, b) { return a - b; }).map(function (k) { return etapas[k]; });
         // motivo x vendedor
         var vends = agrupa(com, 'vendedor_nome').map(function (v) { return v.rotulo; });
+        var inativos = {};
+        com.forEach(function (l) { if (l.vendedor_ativo === false) inativos[l.vendedor_nome] = true; });
         var mot = agrupa(com, 'motivo');
         var matriz = mot.map(function (m) {
           return [esc(m.rotulo)].concat(vends.map(function (v) {
@@ -1030,7 +1033,7 @@
           kpi('Perdas comerciais', num(totCom), 'base dos % desta tela', true) +
           kpi('Saídas / CS', num(totCs), 'detrator, blocklist, reembolso; fora da perda comercial') + '</div>' +
           bloco('Por motivo', 'Perdas comerciais no período.', barrasH(mot, { vazio: 'Nenhuma perda comercial no período.' })) +
-          (com.length ? bloco('Motivo x vendedor', '', tabela(['Motivo'].concat(vends).concat(['Total']), matriz, numCols)) : '') +
+          (com.length ? bloco('Motivo x vendedor', '', tabela(['Motivo'].concat(vends.map(function (v) { return inativos[v] ? v + ' (inativo)' : v; })).concat(['Total']), matriz, numCols)) : '') +
           '<div class="duas">' +
           bloco('Por grupo', 'Código entre colchetes do motivo.', barrasH(grupos)) +
           bloco('Etapa da perda', 'Última etapa do negócio antes de ser perdido.', barrasH(etapaItens)) + '</div>' +
@@ -1056,7 +1059,7 @@
               { rotulo: 'Até 1 dia', valor: t.ate_1d }, { rotulo: '1 a 3 dias', valor: t.de_1a3d },
               { rotulo: '3 a 7 dias', valor: t.de_3a7d }, { rotulo: 'Mais de 7 dias', valor: t.mais_7d }], { cor: cor }) +
             '<h3 class="sub-h">Por vendedor</h3>' + tabela(['Vendedor', 'Casos', 'Mediana', 'Média'], vend.map(function (v) {
-              return [pessoa(v.vendedor_slug === '_sem' ? null : v.vendedor_nome) , num(v.casos), horas(v.mediana_h), horas(v.media_h)];
+              return [pessoa(v.vendedor_slug === '_sem' ? null : v.vendedor_nome, v.vendedor_ativo === false), num(v.casos), horas(v.mediana_h), horas(v.media_h)];
             }), [1, 2, 3]) +
             (Number(t.sem_historico) ? '<p class="fraco nota">' + plural(t.sem_historico, 'caso', 'casos') + ' sem histórico ficaram fora (desfecho a menos de 6 min da entrada no CRM).</p>' : ''));
         };
