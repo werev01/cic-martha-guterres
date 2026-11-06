@@ -145,6 +145,27 @@ Regras:
   (hoje incluso), projetado até o fim do mês. Falta por dia útil usa os dias úteis
   depois de hoje.
 
+## Home (decidido em 06/11/2026)
+
+- Só comercial, com filtro de período (padrão: mês atual).
+- Venda válida = foi paga um dia (0013), no dia do pagamento em SP; valor = líquido.
+  Reembolso abate no dia do reembolso ("após reembolso" = líquido − reembolsos do período).
+- Pessoa = telefone pela chave DDI + DDD + últimos 8 dígitos. Leads = pessoas únicas que
+  entraram em "0. Base/Entrada"; Em Contato = em "2. Em Contato". Conversão = vendas ÷
+  Em Contato, limitada a 100%. A mesma chave vale na conversão da Minha página, Meta do
+  mês e Desempenho.
+- Cards: faturamento bruto, líquido (e após reembolso), vendas, ticket bruto e líquido,
+  conversão (com Em Contato e Leads), faturamento por plataforma (hoje só Hubla; TMB
+  entra depois) e reembolso. Cada card tem a faixa HOJE (parcial) e ONTEM, que ignora o
+  filtro.
+- Venda por produto: vendas e líquido com % do total do período, tickets, e a quebra por
+  oferta.
+- Dia a dia: mês da data final do filtro, dias até hoje + TOTAL. Fim de semana e feriado
+  pela `dim_calendario`; hoje marcado como parcial. TOTAL = pessoas únicas do mês e razão
+  dos totais. Sem Discadora (Callix fora do escopo).
+- Menu lateral recolhível (só ícones), estado guardado no navegador; sem storage, abre
+  expandido. No celular segue o menu atual.
+
 ## Ofertas e cupons vigentes (06/11/2026)
 
 Links de venda na Minha página, cada um com o cupom e botão de copiar
