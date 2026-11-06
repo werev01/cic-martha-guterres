@@ -239,6 +239,9 @@ Links de venda na Minha página, cada um com o cupom e botão de copiar
 - Vendedor inativo com atividade no período (evento de CRM, conversa ou venda) aparece no
   Desempenho, na Taxa de passagem (filtro), em Motivos de perda e no Ciclo, com a etiqueta
   "inativo". Continua sem link de venda e sem login.
+- Mensageria: vendedor inativo que teve conversa no período entra no custo de vendedor, no
+  custo por dia e na tabela de vendedores, com a etiqueta "inativo" (o custo existe do
+  mesmo jeito).
 
 ## Desempenho individual e Minha página (decidido em 06/11/2026)
 

@@ -41,6 +41,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261106_0021_mensageria_campanhas.sql` | `cic_mensageria` refeita: cliques, bloqueios, `custo_dia`, `campanhas` com lotes e KPIs do CRM, `familias`; sai `copy` e `broadcasts` |
 | `20261106_0022_desempenho_minha_pagina.sql` | `cic_desempenho` refeita (ticket, média de vendas por dia útil, LRT mediana e >24 h), `cic_minha_pagina` (burn da comissão, projeção, insights), interna `cic_lrt`, `cic_config.insights` |
 | `20261106_0023_auditoria.sql` | dias úteis a partir da 1ª venda comercial do mês (internas `cic_inicio_util`, `cic_conta_dia_util`) em `cic_desempenho`, `cic_minha_pagina`, `cic_meta_mes` e `cic_meta_funil`; `cic_desempenho` inclui inativo com atividade; `vendedor_ativo` em `cic_desempenho`, `cic_motivos_perda` e `cic_ciclo_venda` |
+| `20261106_0024_mensageria_inativo.sql` | `cic_mensageria`: vendedor inativo com conversa no período entra no custo de vendedor e no custo por dia; item de vendedores ganha `ativo` |
 
 ## Camada tratada (RPCs do app)
 
