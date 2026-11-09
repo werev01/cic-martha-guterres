@@ -1,0 +1,474 @@
+{
+  "id": "g0rbFeARZsDI733W",
+  "name": "[MARTHA] Unnichat · Recuperar ganhos e perdas",
+  "description": "Manual. Busca na API do Unnichat os negócios ganhos e perdidos do pipeline de disparo num período e grava em unnichat_eventos os que faltam (formato do backfill). Config.gravar=false só monta o resumo.",
+  "active": false,
+  "versionId": "1e8e8c6b-15c2-42b5-ac85-058842441206",
+  "nodes": [
+    {
+      "id": "9705903c-4129-4db9-b9bc-7647c3b0fadd",
+      "name": "Rodar manualmente",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "e0837f86-3860-4bad-aee6-4bd8b4b76d35",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "base_url",
+              "value": "https://unnichat.com.br/api",
+              "type": "string"
+            },
+            {
+              "id": "c2",
+              "name": "pipeline_id",
+              "value": "I12FxoheilOqXHQhL2gM",
+              "type": "string"
+            },
+            {
+              "id": "c3",
+              "name": "data_inicial",
+              "value": "2026-11-04T00:00:00-03:00",
+              "type": "string"
+            },
+            {
+              "id": "c4",
+              "name": "data_final",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "c5",
+              "name": "gravar",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "c6",
+              "name": "conexao",
+              "value": "MG 0209",
+              "type": "string"
+            },
+            {
+              "id": "c7",
+              "name": "pipeline_nome",
+              "value": "[COMERCIAL] Pipeline - Disparo 🟢",
+              "type": "string"
+            },
+            {
+              "id": "c8",
+              "name": "origem_padrao_ate",
+              "value": "2026-11-06",
+              "type": "string"
+            },
+            {
+              "id": "c9",
+              "name": "origem_padrao",
+              "value": "Disparos BF26",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "e35166b5-58f8-4e87-b77a-e46e912c703b",
+      "name": "Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Um item por status: a API tem um endpoint e um par de filtros de data para cada um\nconst c = $('Config').first().json;\nreturn ['lost', 'won'].map(s => ({ json: { status: s, de: s + 'From', ate: s + 'To', inicio: c.data_inicial, fim: c.data_final } }));"
+      }
+    },
+    {
+      "id": "e87c7e96-9c26-4cdb-bb44-687f34c9b572",
+      "name": "Listar negócios",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.base_url }}/crm/pipelines/{{ $('Config').first().json.pipeline_id }}/deals/{{ $json.status }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "perPage",
+              "value": "100"
+            },
+            {
+              "name": "={{ $json.de }}",
+              "value": "={{ $json.inicio }}"
+            },
+            {
+              "name": "={{ $json.ate }}",
+              "value": "={{ $json.fim }}"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "page",
+                    "value": "={{ $pageCount + 1 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !($response.body?.pagination?.hasNext ?? $response.body?.metadata?.hasNext) }}",
+              "limitPagesFetched": true,
+              "maxRequests": 60,
+              "requestInterval": 400
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DLPlheJ00sK7zJND",
+          "name": "[MARTHA] Unnichat"
+        }
+      }
+    },
+    {
+      "id": "cb3466ab-09d8-49e1-ace7-06c915c1789f",
+      "name": "Juntar negócios",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Junta as páginas dos dois status numa lista só (sem repetir negócio+status)\nconst vistos = new Set(); const deals = [];\nfor (const i of $input.all()) {\n  const b = i.json; const itens = Array.isArray(b.items) ? b.items : (Array.isArray(b.data) ? b.data : []);\n  for (const d of itens) { const k = d.id + '|' + d.status; if (!vistos.has(k)) { vistos.add(k); deals.push(d); } }\n}\nreturn [{ json: { deals } }];"
+      }
+    },
+    {
+      "id": "8f0f491f-ed82-4945-8467-822aaa1d6fb2",
+      "name": "Eventos do banco",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/unnichat_eventos",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "negocio_id,status,etapa_crm,proprietario,event_ts,pessoa_chave,origem,codigo_copy"
+            },
+            {
+              "name": "or",
+              "value": "(negocio_id.not.is.null,proprietario.not.is.null)"
+            },
+            {
+              "name": "order",
+              "value": "id"
+            },
+            {
+              "name": "limit",
+              "value": "1000"
+            },
+            {
+              "name": "offset",
+              "value": "0"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $pageCount * 1000 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !Array.isArray($response.body) || $response.body.length < 1000 }}",
+              "limitPagesFetched": true,
+              "maxRequests": 100,
+              "requestInterval": 100
+            }
+          }
+        }
+      },
+      "executeOnce": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "lE0HnMSq3MSGveqV",
+          "name": "[MARTHA] Supabase service role"
+        }
+      }
+    },
+    {
+      "id": "5cfc0279-2454-43e1-af72-aeef17ce589e",
+      "name": "Montar eventos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Compara a API com o banco e monta as linhas que faltam, no formato do backfill de 05/11.\n// Regras: docs/contrato-dados.md (unnichat_eventos, recuperação de 09/11).\nconst c = $('Config').first().json;\nconst deals = $('Juntar negócios').first().json.deals;\nconst ev = $input.all().map(i => i.json).filter(e => e && (e.negocio_id || e.proprietario));\nconst hoje = $now.setZone('America/Sao_Paulo').toFormat('yyyy-MM-dd');\nconst digitos = s => String(s ?? '').replace(/\\D/g, '');\n// mesma regra de cic_fone_chave: DDI + DDD + 8 últimos (10/11 dígitos ganham 55)\nconst chave = s => { let d = digitos(s); if (!d) return null; if (d.length === 10 || d.length === 11) d = '55' + d; return d.slice(0, 4) + d.slice(-8); };\nconst ja = new Set(ev.filter(e => e.negocio_id && (e.status === 'won' || e.status === 'lost')).map(e => e.negocio_id + '|' + e.status));\nconst porNeg = {}, porPessoa = {};\nfor (const e of ev) {\n  const t = Date.parse(e.event_ts);\n  if (e.negocio_id) (porNeg[e.negocio_id] = porNeg[e.negocio_id] || []).push({ ...e, t });\n  if (e.pessoa_chave && e.proprietario) (porPessoa[e.pessoa_chave] = porPessoa[e.pessoa_chave] || []).push({ ...e, t });\n}\nconst cf = (d, re) => { for (const f of (d.customFields || [])) { const nome = f.name ?? f.label ?? f.key ?? f.field?.name ?? ''; const v = f.value ?? f.text ?? f.data; if (re.test(String(nome)) && v !== null && v !== undefined && String(v).trim() !== '') return String(v).trim(); } return null; };\nconst linhas = []; const r = { api_lost: 0, api_won: 0, ja_existem: 0, inserir: 0, inserir_lost: 0, inserir_won: 0, com_proprietario: 0, prop_do_negocio: 0, prop_da_pessoa: 0, sem_telefone: 0, origem_customfield: 0, origem_negocio: 0, origem_padrao: 0, origem_vazia: 0, origem_normalizada: 0, copy_customfield: 0, copy_negocio: 0, por_dia: {} };\nfor (const d of deals) {\n  if (d.status === 'lost') r.api_lost++; else if (d.status === 'won') r.api_won++; else continue;\n  if (ja.has(d.id + '|' + d.status)) { r.ja_existem++; continue; }\n  const tel = digitos(d.phoneNumber);\n  if (!tel) { r.sem_telefone++; continue; }\n  const ts = new Date(Math.floor(Date.parse(d.attributedIn) / 1000) * 1000);\n  const t = ts.getTime();\n  const doNeg = (porNeg[d.id] || []).filter(e => e.etapa_crm && e.proprietario && e.t <= t).sort((a, b) => b.t - a.t)[0];\n  const pk = chave(tel);\n  const daPessoa = doNeg ? null : (porPessoa[pk] || []).filter(e => e.t <= t).sort((a, b) => b.t - a.t)[0];\n  const prop = doNeg ? doNeg.proprietario : (daPessoa ? daPessoa.proprietario : null);\n  if (doNeg) r.prop_do_negocio++; else if (daPessoa) r.prop_da_pessoa++;\n  if (prop) r.com_proprietario++;\n  const ultNeg = (porNeg[d.id] || []).sort((a, b) => b.t - a.t);\n  let origem = cf(d, /^origem$/i), fonteO = 'customfield';\n  if (!origem) { const e = ultNeg.find(e => e.origem && String(e.origem).trim()); if (e) { origem = e.origem; fonteO = 'negocio'; } }\n  const diaSp = DateTime.fromJSDate(ts).setZone('America/Sao_Paulo').toFormat('yyyy-MM-dd');\n  if (!origem && diaSp <= c.origem_padrao_ate) { origem = c.origem_padrao; fonteO = 'padrao'; }\n  if (!origem) fonteO = 'vazia';\n  // grafia errada no campo do negócio ('Disparo BF26') vira o nome do funil (decidido em 09/11)\n  if (origem && /^disparo\\s*bf26$/i.test(String(origem).trim())) { origem = c.origem_padrao; r.origem_normalizada++; }\n  r['origem_' + fonteO]++;\n  let copy = cf(d, /codigo[_ ]?copy/i);\n  if (copy) r.copy_customfield++; else { const e = ultNeg.find(e => e.codigo_copy); if (e) { copy = e.codigo_copy; r.copy_negocio++; } }\n  const email = d.email && String(d.email).trim() !== '' && String(d.email).trim() !== '-' ? String(d.email).trim() : null;\n  const rs = d.reasonLoss ? (d.reasonLoss.description ?? d.reasonLoss) : null;\n  linhas.push({\n    event_ts: ts.toISOString(), telefone: tel, acao: 'Entrou na etapa', etapa_crm: null, status: d.status,\n    motivo_perda: d.status === 'lost' ? rs : null, nome: d.contactName || d.name || null, email, origem: origem || null, codigo_copy: copy || null,\n    conexao: c.conexao, pipeline: c.pipeline_nome, negocio_id: d.id, proprietario: prop,\n    raw_payload: { backfill: 'api_deals_' + hoje, deal: { id: d.id, status: d.status, attributedIn: d.attributedIn, createdAt: d.createdAt, contactId: d.contactId, reasonLoss: rs } }\n  });\n  r.inserir++; r['inserir_' + d.status]++;\n  const k = diaSp + ' ' + d.status; r.por_dia[k] = (r.por_dia[k] || 0) + 1;\n}\nreturn [{ json: { resumo: r, gravar: c.gravar === true, linhas } }];"
+      }
+    },
+    {
+      "id": "693b8553-9d3c-42ab-a6e7-785e09ac66fd",
+      "name": "Gravar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1568,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.gravar }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "e920d4d5-4cc0-49da-a886-7cbd7d7f1ba1",
+      "name": "Lotes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Lotes de 200 linhas por POST\nconst l = $input.first().json.linhas; const out = [];\nfor (let i = 0; i < l.length; i += 200) out.push({ json: { body: l.slice(i, i + 200) } });\nreturn out;"
+      }
+    },
+    {
+      "id": "66d7ed4f-8a73-4ddb-9713-8fdd3512b9b1",
+      "name": "Inserir no Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2016,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/unnichat_eventos?on_conflict=telefone,acao,etapa_crm,event_ts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=ignore-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 300
+            }
+          }
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "lE0HnMSq3MSGveqV",
+          "name": "[MARTHA] Supabase service role"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Rodar manualmente": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status": {
+      "main": [
+        [
+          {
+            "node": "Listar negócios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar negócios": {
+      "main": [
+        [
+          {
+            "node": "Juntar negócios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Juntar negócios": {
+      "main": [
+        [
+          {
+            "node": "Eventos do banco",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Eventos do banco": {
+      "main": [
+        [
+          {
+            "node": "Montar eventos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar eventos": {
+      "main": [
+        [
+          {
+            "node": "Gravar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gravar?": {
+      "main": [
+        [
+          {
+            "node": "Lotes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lotes": {
+      "main": [
+        [
+          {
+            "node": "Inserir no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/Sao_Paulo",
+    "saveDataErrorExecution": "all"
+  },
+  "tags": [
+    {
+      "id": "1cUEqYyGtnWiveGJ",
+      "name": "tipo:manual"
+    },
+    {
+      "id": "ERc7KbpshxaVshfo",
+      "name": "fonte:unnichat"
+    },
+    {
+      "id": "Q1zVhIeWVFm8MUpA",
+      "name": "martha"
+    }
+  ],
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

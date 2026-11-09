@@ -314,6 +314,22 @@ em `raw_payload->>'backfill'` (`api_deals_2026-11-05`, com o deal em `raw_payloa
 - ganho no CIC é sempre a venda paga na Hubla, casada pelo telefone (DDI + DDD +
   últimos 8); o won do CRM não entra em conta.
 
+**Segunda recuperação de ganhos e perdas (09/11/2026).** Causa: a [EVENTO] Perdido tinha
+uma espera de 15 s que era cancelada quando BLOCKLIST/GERAL rodavam no mesmo contato
+(1.111 disparos, 341 esperas canceladas); a espera foi removida às 14:59 de 09/11.
+Correção: workflow manual `[MARTHA] Unnichat · Recuperar ganhos e perdas`
+(`n8n/workflows/unnichat-recuperar-ganhos-perdas.json`, desativado, `gravar=false` por
+padrão) lê `/crm/pipelines/{id}/deals/lost|won` com `lostFrom/lostTo` e `wonFrom/wonTo`,
+pula negócio que já tem evento com o mesmo `negocio_id` e status e insere o que falta no
+formato do backfill (`raw_payload->>'backfill'` = `api_deals_2026-11-09`), com
+`on conflict do nothing`. Regras do preenchimento: `event_ts` = `attributedIn` no
+segundo; `proprietario` = último evento de etapa do negócio, senão da mesma pessoa
+(`pessoa_chave`) antes do fechamento; `origem` e `codigo_copy` do campo do negócio, senão
+do último evento do mesmo negócio; origem vazia até 06/11 = "Disparos BF26"; "Disparo
+BF26" normalizado para "Disparos BF26". Resultado: 341 perdas e 2 ganhos inseridos (68
+com proprietário). Depois: banco = API em perdas (1.237 negócios de 04/11 a 09/11 15:27)
+e as 2 perdas após 15:00 chegaram pela automação.
+
 ### `unnichat_automacoes` (webhook `/webhook/martha-guterres/unnichat/automacoes`)
 **Não alimentada por decisão (04/11/2026):** só o comercial reporta (eventos de CRM em
 `unnichat_eventos`) e o custo de mensagem das automações sai da coleta horária
