@@ -236,6 +236,32 @@ Links de venda na Minha página, cada um com o cupom e botão de copiar
 - Campanhas (09/11): entregues e falhas com % sobre contatos (também nos lotes); leads E0
   com % sobre entregues; coluna Custo/lead E0 = custo da campanha ÷ leads E0.
 
+## Filtros de data, Taxa de passagem por origem e Motivos de perda (decidido em 09/11/2026)
+
+- Filtro de data (todas as telas com De/Até): presets Hoje, Ontem, Essa semana (segunda até
+  hoje), Semana passada (segunda a domingo anteriores), Esse mês (dia 1 até hoje) e Mês
+  passado (mês anterior inteiro). O preset ativo fica destacado; editar a data na mão
+  desmarca. O "até" nunca passa de hoje (São Paulo).
+- Taxa de passagem: funil geral e um quadro por origem (Disparos BF26, Recuperação BF26,
+  Sem origem e outras, por volume de negócios), com a mesma contagem do funil geral
+  particionada pela origem do negócio (último evento do negócio com origem). Venda pela
+  origem do lead antes da compra; venda sem lead no funil padrão. Origem sem negócio no
+  período não aparece. A soma das origens é o funil geral. Sem a tabela "Por etapa" do
+  funil geral; cada etapa do quadro por origem tem uma barra (comprimento = entraram,
+  parte escura = avançaram).
+- Conversão etapa 2 > venda = vendas comerciais ÷ pessoas únicas (pessoa_chave) que
+  passaram por "2. Em Contato" no período (origem do evento). No geral é a mesma conversão
+  da Home.
+- Motivos de perda: os motivos do grupo cs (Detrator/Blocklist, Reembolso/Cancelamento) são
+  registrados pelo comercial e contam como motivo normal em toda a tela, sem separação.
+  Todos os gráficos são pizza (donut), top 6 + "Outros motivos", legenda com motivo, qtd e
+  %. Cards "Motivo de perda por origem" e "Motivos por vendedor" (total, % sobre o total
+  do período, pizza); vendedor inativo aparece se tiver perda; perdas sem dono ficam em
+  "Sem vendedor". Etapa da perda em pizza na ordem das etapas, e painel "Motivos por
+  etapa" com um card por etapa (motivos de perda daquela etapa, mesmo formato). Nas outras telas (Taxa de
+  passagem, Ciclo, Desempenho) a perda comercial continua sem o grupo cs.
+- Taxa de passagem e Motivos de perda seguem só para admin (vendedor recebe 42501).
+
 ## Regras gerais de contagem (decidido em 06/11/2026, auditoria)
 
 - PADRÃO PARA QUALQUER TELA (09/11): venda = venda comercial válida na Hubla (paga, ou
