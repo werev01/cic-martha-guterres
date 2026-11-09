@@ -503,3 +503,6 @@ tr.rei td strong { color: #8a6a2c; }
 .insight { border-left: 3px solid var(--whiskey); background: #faf7f6; border-radius: 0 var(--raio) var(--raio) 0; padding: 12px 14px; }
 .insight strong { display: block; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--whiskey); margin-bottom: 4px; }
 .insight p { margin: 0; font-size: 14px; line-height: 1.45; }
+
+/* dica ao passar o mouse (09/11/2026) */
+.dica { cursor: help; border-bottom: 1px dotted var(--grey); }
