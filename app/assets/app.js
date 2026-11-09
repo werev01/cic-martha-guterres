@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-09b';
-  var MUDANCAS = 'Taxa de passagem e Ciclo contam só venda comercial (crédito pelo link); funil padrão no lugar de Sem funil; rótulos e dicas de leads e negócios';
+  var BUILD = '2026-11-09c';
+  var MUDANCAS = 'Presets de data no filtro; Taxa de passagem por origem com conversão etapa 2 > venda; Motivos de perda em pizza por motivo, origem, vendedor e etapa';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -776,21 +776,58 @@
       (vendedoresCache || []).map(function (v) {
         return '<option value="' + esc(v.utm_slug) + '"' + (filtro.vend === v.utm_slug ? ' selected' : '') + '>' + esc(v.nome) + (v.ativo === false ? ' (inativo)' : '') + '</option>';
       }).join('') + '</select></label>' : '';
+    var botoes = PRESETS.map(function (pr) {
+      return '<button type="button" class="preset' + (filtro.preset === pr[0] ? ' on' : '') + '" data-preset="' + pr[0] + '">' + pr[1] + '</button>';
+    }).join('');
     alvo.innerHTML = '<div class="filtro">' +
       '<label class="seletor"><span>De</span><input type="date" id="f-ini" value="' + filtro.ini + '" max="' + hojeSP() + '"></label>' +
       '<label class="seletor"><span>Até</span><input type="date" id="f-fim" value="' + filtro.fim + '" max="' + hojeSP() + '"></label>' +
+      '<div class="presets" role="group" aria-label="Período rápido">' + botoes + '</div>' +
       opcoes + '</div><div id="f-corpo"></div>';
     var muda = function () {
       var i = $('f-ini').value, f = $('f-fim').value;
       if (!i || !f) return;
       if (i > f) { var t = i; i = f; f = t; }
+      var h = hojeSP();
+      if (f > h) f = h;
+      if (i > h) i = h;
       filtro.ini = i; filtro.fim = f;
       if ($('f-vend')) filtro.vend = $('f-vend').value;
       recarregar(++pedido);
     };
-    ['f-ini', 'f-fim', 'f-vend'].forEach(function (k) { if ($(k)) $(k).addEventListener('change', muda); });
+    // data editada na mão: nenhum preset fica ativo
+    ['f-ini', 'f-fim'].forEach(function (k) { $(k).addEventListener('change', function () { filtro.preset = null; marcaPreset(alvo); muda(); }); });
+    if ($('f-vend')) $('f-vend').addEventListener('change', muda);
+    Array.prototype.forEach.call(alvo.querySelectorAll('.preset'), function (b) {
+      b.addEventListener('click', function () {
+        var d = datasPreset(b.dataset.preset);
+        filtro.preset = b.dataset.preset;
+        $('f-ini').value = d[0]; $('f-fim').value = d[1];
+        marcaPreset(alvo);
+        muda();
+      });
+    });
     return $('f-corpo');
   }
+  // Presets do filtro de data (semana começa na segunda; datas de São Paulo)
+  var PRESETS = [['hoje', 'Hoje'], ['ontem', 'Ontem'], ['semana', 'Essa semana'], ['semana_ant', 'Semana passada'], ['mes', 'Esse mês'], ['mes_ant', 'Mês passado']];
+  function somaDias(d, n) {
+    var x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10);
+  }
+  function datasPreset(k) {
+    var h = hojeSP(), seg = somaDias(h, -((new Date(h + 'T12:00:00Z').getUTCDay() + 6) % 7)), ini1 = h.slice(0, 8) + '01';
+    if (k === 'hoje') return [h, h];
+    if (k === 'ontem') return [somaDias(h, -1), somaDias(h, -1)];
+    if (k === 'semana') return [seg, h];
+    if (k === 'semana_ant') return [somaDias(seg, -7), somaDias(seg, -1)];
+    if (k === 'mes') return [ini1, h];
+    var fimAnt = somaDias(ini1, -1);
+    return [fimAnt.slice(0, 8) + '01', fimAnt];
+  }
+  function marcaPreset(alvo) {
+    Array.prototype.forEach.call(alvo.querySelectorAll('.preset'), function (b) { b.classList.toggle('on', b.dataset.preset === filtro.preset); });
+  }
+
   function aplicaVend(linhas) {
     if (!filtro.vend || filtro.vend === '_sem') return linhas;
     return linhas.filter(function (l) { return l.vendedor_slug === filtro.vend; });
@@ -982,13 +1019,18 @@
 
   function telaPassagem(alvo, id) {
     telaGestao(alvo, id, true, function (corpo, idc) {
-      rpcGestao('cic_taxa_passagem', true).then(function (r) {
+      rpcGestao('cic_taxa_passagem_origem', true).then(function (r) {
         if (idc !== pedido) return;
         if (r.error) return falhou(corpo, r.error);
         var todas = r.data || [];
-        // linha sem etapa (ordem nula) = vendas sem negócio no CRM antes da compra: só na tabela
-        var et = todas.filter(function (e) { return e.ordem !== null && e.ordem !== undefined; });
+        var geral = todas.filter(function (e) { return e.origem === null || e.origem === undefined; });
+        // origens na ordem do banco (por volume de negócios)
+        var origens = [];
+        todas.forEach(function (e) { if (e.origem != null && origens.indexOf(e.origem) < 0) origens.push(e.origem); });
         var dicaEnt = 'um negócio por entrada no CRM; a mesma pessoa pode ter mais de um';
+        var dicaConv = 'vendas comerciais ÷ pessoas únicas que passaram por Em Contato no período (a mesma conversão da Home)';
+        var temEtapa = function (e) { return e.ordem !== null && e.ordem !== undefined; };
+        var et = geral.filter(temEtapa);
         var max = Math.max.apply(null, et.map(function (e) { return Number(e.entraram); }).concat([1]));
         var funil = '<div class="funil">' + et.map(function (e) {
           return '<div class="funil-etapa"><div class="funil-nome"><strong>' + e.ordem + '. ' + esc(e.etapa) + '</strong>' +
@@ -996,16 +1038,63 @@
             '<div class="funil-trilho"><div class="funil-barra" style="width:' + (Number(e.entraram) / max * 100).toFixed(1) + '%"></div></div>' +
             '<div class="funil-pct"><strong>' + pct(e.passagem, 0) + '</strong><span>passaram</span></div></div>';
         }).join('') + '</div>';
-        var tab = todas.map(function (e) {
-          if (e.ordem === null || e.ordem === undefined) return ['<span class="fraco">' + esc(e.etapa) + '</span>', '–', '–', '–', '–', num(e.vendas), '–'];
+        var g0 = geral[0] || {};
+        var conv = function (x) {
+          return kpi('Conversão etapa 2 > venda', x.conversao == null ? '–' : pct(x.conversao),
+            '<span title="' + esc(dicaConv) + '" class="dica">' + plural(x.vendas_total || 0, 'venda', 'vendas') + ' ÷ ' + num(x.pessoas_e2) + ' em contato</span>', true);
+        };
+        var linhaTab = function (e) {
+          if (!temEtapa(e)) return ['<span class="fraco">' + esc(e.etapa) + '</span>', '–', '–', '–', '–', num(e.vendas), '–'];
           return ['<strong>' + e.ordem + '. ' + esc(e.etapa) + '</strong>', num(e.entraram), num(e.avancaram), pct(e.passagem),
             num(e.perdidos), num(e.vendas), num(e.abertos)];
-        });
-        corpo.innerHTML = bloco('Funil do CRM', 'Negócios que entraram em cada etapa no período e quantos passaram adiante (etapa seguinte ou venda na Hubla).', funil) +
+        };
+        var cab = ['Etapa', { t: 'Negócios que entraram', dica: dicaEnt }, 'Passaram', 'Passagem', 'Perdidos', 'Vendas', 'Abertos'];
+        var quadros = origens.map(function (o) {
+          var ls = todas.filter(function (e) { return e.origem === o; });
+          var x = ls[0] || {};
+          var tab = ls.filter(function (e) { return temEtapa(e) || Number(e.vendas); }).map(function (e) {
+            if (!temEtapa(e)) return ['<span class="fraco">Sem negócio no CRM</span>', '–', '–', '–', num(e.vendas)];
+            return [e.ordem + '. ' + esc(String(e.etapa).replace(/\s*\(.*\)$/, '')), num(e.entraram), num(e.avancaram), pct(e.passagem), num(e.vendas)];
+          });
+          return '<section class="bloco origem-card"><header class="oc-topo"><h2>' + esc(o) + '</h2>' +
+            '<div class="oc-conv" title="' + esc(dicaConv) + '"><b>' + (x.conversao == null ? '–' : pct(x.conversao)) + '</b><span>conversão etapa 2 > venda</span>' +
+            '<em>' + plural(x.vendas_total || 0, 'venda', 'vendas') + ' ÷ ' + num(x.pessoas_e2) + ' em contato</em></div></header>' +
+            tabela(['Etapa', { t: 'Entraram', dica: dicaEnt }, 'Avançaram', '%', 'Vendas'], tab, [1, 2, 3, 4]) + '</section>';
+        }).join('');
+        corpo.innerHTML = '<div class="kpis kpis-2">' + conv(g0) + kpi('Vendas comerciais', num(g0.vendas_total), 'crédito pelo link do vendedor') + '</div>' +
+          bloco('Funil do CRM', 'Negócios que entraram em cada etapa no período e quantos passaram adiante (etapa seguinte ou venda comercial).', funil) +
           bloco('Por etapa', 'Perdidos: perdas comerciais paradas na etapa (sem as saídas CS). Vendas: vendas comerciais do período (crédito pelo link do vendedor), na etapa em que o negócio estava na compra. Abertos: ainda parados ali.',
-            tabela(['Etapa', { t: 'Negócios que entraram', dica: dicaEnt }, 'Passaram', 'Passagem', 'Perdidos', 'Vendas', 'Abertos'], tab, [1, 2, 3, 4, 5, 6]));
+            tabela(cab, geral.map(linhaTab), [1, 2, 3, 4, 5, 6])) +
+          (origens.length ? '<h3 class="sub-h sec-h">Por origem</h3><p class="fraco nota">Origem do negócio (último evento com origem). Venda pela origem do lead antes da compra; venda sem lead conta no funil padrão.</p>' +
+            '<div class="origens">' + quadros + '</div>' : '');
       });
     });
+  }
+
+  // Donut com top 6 + "Outros motivos"; legenda com rótulo, qtd e %
+  var COR_PIZZA = ['#1f2b38', '#844420', '#8e6e59', '#4f6274', '#b8875f', '#a39e9a'];
+  function pizza(itens, opc) {
+    opc = opc || {};
+    itens = itens.filter(function (x) { return Number(x.valor) > 0; }).sort(function (a, b) { return b.valor - a.valor; });
+    if (opc.ordem) itens = opc.ordem(itens);
+    var total = itens.reduce(function (a, x) { return a + Number(x.valor); }, 0);
+    if (!total) return '<p class="painel-msg vazio">' + esc(opc.vazio || 'Sem dados no período.') + '</p>';
+    var top = opc.semOutros ? itens : itens.slice(0, 6);
+    var resto = opc.semOutros ? 0 : itens.slice(6).reduce(function (a, x) { return a + Number(x.valor); }, 0);
+    if (resto) top = top.concat([{ rotulo: opc.outros || 'Outros motivos', valor: resto, outros: true }]);
+    var R = 15.915, ac = 0, tam = opc.tam || 132;
+    var arcos = top.map(function (x, k) {
+      var f = Number(x.valor) / total * 100, cor = x.outros ? '#d9d2cf' : COR_PIZZA[k % COR_PIZZA.length];
+      var a = '<circle r="' + R + '" cx="21" cy="21" fill="none" stroke="' + cor + '" stroke-width="6.5" stroke-dasharray="' + f.toFixed(3) + ' ' + (100 - f).toFixed(3) + '" stroke-dashoffset="' + (25 - ac).toFixed(3) + '"><title>' + esc(x.rotulo + ': ' + num(x.valor) + ' (' + pct(x.valor / total) + ')') + '</title></circle>';
+      ac += f; x.cor = cor; return a;
+    }).join('');
+    var svg = '<svg class="pizza-svg" viewBox="0 0 42 42" width="' + tam + '" height="' + tam + '" role="img" aria-label="' + esc(opc.rotulo || 'Distribuição') + '">' +
+      '<circle r="' + R + '" cx="21" cy="21" fill="none" stroke="#efeae8" stroke-width="6.5"/>' + arcos +
+      '<text x="21" y="21" class="pizza-num" text-anchor="middle" dominant-baseline="central">' + num(total) + '</text></svg>';
+    var leg = '<ul class="pizza-leg">' + top.map(function (x) {
+      return '<li><i style="background:' + x.cor + '"></i><span class="pizza-rot">' + esc(x.rotulo) + '</span><b>' + num(x.valor) + '</b><em>' + pct(x.valor / total) + '</em></li>';
+    }).join('') + '</ul>';
+    return '<div class="pizza">' + svg + leg + '</div>';
   }
 
   function telaMotivos(alvo, id) {
@@ -1013,40 +1102,41 @@
       rpcGestao('cic_motivos_perda', true).then(function (r) {
         if (idc !== pedido) return;
         if (r.error) return falhou(corpo, r.error);
+        // os motivos do grupo cs (detrator/blocklist, reembolso) são dados pelo comercial: contam como motivo normal (09/11)
         var linhas = r.data || [];
-        var com = linhas.filter(function (l) { return l.tipo === 'comercial'; });
-        var cs = linhas.filter(function (l) { return l.tipo === 'cs'; });
         var agrupa = function (lista, chave) {
           var m = {};
           lista.forEach(function (l) { m[l[chave]] = (m[l[chave]] || 0) + Number(l.qtd); });
           return Object.keys(m).map(function (k) { return { rotulo: k, valor: m[k] }; }).sort(function (a, b) { return b.valor - a.valor; });
         };
-        var grupos = agrupa(com.map(function (l) { return { g: l.grupo ? 'Grupo [' + l.grupo + ']' : 'Sem grupo', qtd: l.qtd }; }), 'g');
+        var total = soma(linhas, 'qtd');
+        var card = function (titulo, lista, extra) {
+          var t = soma(lista, 'qtd');
+          return '<div class="pz-card"><div class="pz-topo"><div class="pz-nome">' + titulo + '</div>' +
+            '<div class="pz-tot"><b>' + num(t) + '</b><span>' + pct(total ? t / total : 0) + ' das perdas</span></div></div>' +
+            pizza(agrupa(lista, 'motivo'), { tam: 116, rotulo: 'Motivos de perda' }) + (extra || '') + '</div>';
+        };
+        var porOrigem = agrupa(linhas, 'origem').map(function (o) {
+          return card(esc(o.rotulo), linhas.filter(function (l) { return l.origem === o.rotulo; }));
+        }).join('');
+        var vends = agrupa(linhas, 'vendedor_nome');
+        var porVend = vends.map(function (v) {
+          var ls = linhas.filter(function (l) { return l.vendedor_nome === v.rotulo; });
+          var sem = !ls[0] || !ls[0].vendedor_slug;
+          return card(sem ? pessoa(null) : pessoa(v.rotulo, ls[0].vendedor_ativo === false), ls);
+        }).join('');
         var etapas = {};
-        com.forEach(function (l) { var k = l.etapa_ordem == null ? 99 : l.etapa_ordem; etapas[k] = etapas[k] || { rotulo: l.etapa, valor: 0 }; etapas[k].valor += Number(l.qtd); });
-        var etapaItens = Object.keys(etapas).sort(function (a, b) { return a - b; }).map(function (k) { return etapas[k]; });
-        // motivo x vendedor
-        var vends = agrupa(com, 'vendedor_nome').map(function (v) { return v.rotulo; });
-        var inativos = {};
-        com.forEach(function (l) { if (l.vendedor_ativo === false) inativos[l.vendedor_nome] = true; });
-        var mot = agrupa(com, 'motivo');
-        var matriz = mot.map(function (m) {
-          return [esc(m.rotulo)].concat(vends.map(function (v) {
-            var q = com.filter(function (l) { return l.motivo === m.rotulo && l.vendedor_nome === v; }).reduce(function (a, l) { return a + Number(l.qtd); }, 0);
-            return q ? num(q) : '<span class="fraco">–</span>';
-          })).concat(['<strong>' + num(m.valor) + '</strong>']);
-        });
-        var totCom = soma(com, 'qtd'), totCs = soma(cs, 'qtd');
-        var numCols = vends.map(function (v, i) { return i + 1; }).concat([vends.length + 1]);
-        corpo.innerHTML = '<div class="kpis">' +
-          kpi('Perdas comerciais', num(totCom), 'base dos % desta tela', true) +
-          kpi('Saídas / CS', num(totCs), 'detrator, blocklist, reembolso; fora da perda comercial') + '</div>' +
-          bloco('Por motivo', 'Perdas comerciais no período.', barrasH(mot, { vazio: 'Nenhuma perda comercial no período.' })) +
-          (com.length ? bloco('Motivo x vendedor', '', tabela(['Motivo'].concat(vends.map(function (v) { return inativos[v] ? v + ' (inativo)' : v; })).concat(['Total']), matriz, numCols)) : '') +
+        linhas.forEach(function (l) { var k = l.etapa_ordem == null ? 99 : l.etapa_ordem; etapas[k] = etapas[k] || { rotulo: (l.etapa_ordem == null ? '' : l.etapa_ordem + '. ') + l.etapa, valor: 0, k: k }; etapas[k].valor += Number(l.qtd); });
+        var etapaItens = Object.keys(etapas).map(function (k) { return etapas[k]; });
+        corpo.innerHTML = '<div class="kpis kpis-2">' +
+          kpi('Perdas no período', num(total), 'inclui detrator/blocklist e reembolso, que o comercial também registra', true) +
+          kpi('Motivos diferentes', num(agrupa(linhas, 'motivo').length), '') + '</div>' +
           '<div class="duas">' +
-          bloco('Por grupo', 'Código entre colchetes do motivo.', barrasH(grupos)) +
-          bloco('Etapa da perda', 'Última etapa do negócio antes de ser perdido.', barrasH(etapaItens)) + '</div>' +
-          bloco('Saídas / CS', 'Não entram nos % de perda comercial.', barrasH(agrupa(cs, 'motivo'), { cor: COR.cs, vazio: 'Nenhuma saída de CS no período.' }));
+          bloco('Por motivo', 'Todas as perdas do período. Top 6 + outros motivos.', pizza(agrupa(linhas, 'motivo'), { vazio: 'Nenhuma perda no período.', rotulo: 'Perdas por motivo' })) +
+          bloco('Etapa da perda', 'Última etapa do negócio antes de ser perdido.', pizza(etapaItens, { semOutros: true, outros: 'Outras etapas', rotulo: 'Perdas por etapa',
+            ordem: function (it) { return it.slice().sort(function (a, b) { return a.k - b.k; }); } })) + '</div>' +
+          bloco('Motivo de perda por origem', 'Origem do negócio. % sobre o total de perdas do período.', porOrigem ? '<div class="pz-grade">' + porOrigem + '</div>' : '<p class="painel-msg vazio">Nenhuma perda no período.</p>') +
+          bloco('Motivos por vendedor', 'Dono do negócio no CRM. % sobre o total de perdas do período.', porVend ? '<div class="pz-grade">' + porVend + '</div>' : '<p class="painel-msg vazio">Nenhuma perda no período.</p>');
       });
     });
   }
