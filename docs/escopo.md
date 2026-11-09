@@ -177,7 +177,10 @@ Regras:
   recalcula pessoas únicas).
 - Funil = `unnichat_eventos.origem` (vazio = "Sem origem"). Lead e Em Contato contam no
   funil do próprio evento. Venda (só comercial) vai pro funil da origem mais recente da
-  pessoa antes da compra (telefone DDI + DDD + 8); sem evento antes = "Sem funil".
+  pessoa antes da compra (telefone DDI + DDD + 8); sem evento antes vai pro funil padrão
+  (`cic_config.funil_padrao`, hoje "Disparos BF26"; antes de 09/11 era "Sem funil").
+  "Sem origem" só aparece para eventos de 07/11 em diante (os anteriores foram corrigidos
+  no banco em 09/11).
   Crédito único por venda. TOTAL: Leads = soma dos funis; Em Contato = pessoas únicas.
 - Saíram da Meta do mês o gráfico por dia e o ranking dos vendedores.
 - Pendente (Nirla): origem vazia em ~60% dos eventos e vendas sem evento no CRM antes da
@@ -234,6 +237,18 @@ Links de venda na Minha página, cada um com o cupom e botão de copiar
   com % sobre entregues; coluna Custo/lead E0 = custo da campanha ÷ leads E0.
 
 ## Regras gerais de contagem (decidido em 06/11/2026, auditoria)
+
+- PADRÃO PARA QUALQUER TELA (09/11): venda = venda comercial válida na Hubla (paga, ou
+  paga e depois reembolsada, regra da 0013), com vendedor pelo `utm_source` e crédito pelo
+  utm, nunca pelo dono do negócio no CRM. Venda orgânica não entra em tela de CRM nem de
+  gestão. Nas telas de CRM a venda é casada com o negócio da pessoa (último evento com
+  negócio antes da compra) e com a etapa em que ele estava na compra (`cic_vendas_crm`).
+  Venda sem negócio no CRM antes da compra: na Taxa de passagem fica numa linha à parte
+  ("Sem negócio no CRM antes da venda"); no Ciclo entra em "sem histórico".
+  Na Taxa de passagem, "Passaram" e "Abertos" também consideram só a venda comercial
+  casada com o negócio.
+- Rótulos: na Taxa de passagem, "Negócios que entraram" (um negócio por entrada no CRM; a
+  mesma pessoa pode ter mais de um). Leads da Home = pessoas únicas pelo telefone.
 
 - Ganho e perda contam por negócio: um `negocio_id` com o mesmo won/lost repetido (a
   automação do Unnichat dispara de novo, segundos depois) vale uma vez, pelo evento mais
