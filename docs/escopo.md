@@ -246,7 +246,9 @@ Links de venda na Minha página, cada um com o cupom e botão de copiar
   Sem origem e outras, por volume de negócios), com a mesma contagem do funil geral
   particionada pela origem do negócio (último evento do negócio com origem). Venda pela
   origem do lead antes da compra; venda sem lead no funil padrão. Origem sem negócio no
-  período não aparece. A soma das origens é o funil geral.
+  período não aparece. A soma das origens é o funil geral. Sem a tabela "Por etapa" do
+  funil geral; cada etapa do quadro por origem tem uma barra (comprimento = entraram,
+  parte escura = avançaram).
 - Conversão etapa 2 > venda = vendas comerciais ÷ pessoas únicas (pessoa_chave) que
   passaram por "2. Em Contato" no período (origem do evento). No geral é a mesma conversão
   da Home.
@@ -255,7 +257,8 @@ Links de venda na Minha página, cada um com o cupom e botão de copiar
   Todos os gráficos são pizza (donut), top 6 + "Outros motivos", legenda com motivo, qtd e
   %. Cards "Motivo de perda por origem" e "Motivos por vendedor" (total, % sobre o total
   do período, pizza); vendedor inativo aparece se tiver perda; perdas sem dono ficam em
-  "Sem vendedor". Etapa da perda em pizza na ordem das etapas. Nas outras telas (Taxa de
+  "Sem vendedor". Etapa da perda em pizza na ordem das etapas, e painel "Motivos por
+  etapa" com um card por etapa (motivos de perda daquela etapa, mesmo formato). Nas outras telas (Taxa de
   passagem, Ciclo, Desempenho) a perda comercial continua sem o grupo cs.
 - Taxa de passagem e Motivos de perda seguem só para admin (vendedor recebe 42501).
 

@@ -7,7 +7,7 @@
   'use strict';
 
   var BUILD = '2026-11-09c';
-  var MUDANCAS = 'Presets de data no filtro; Taxa de passagem por origem com conversão etapa 2 > venda; Motivos de perda em pizza por motivo, origem, vendedor e etapa';
+  var MUDANCAS = 'Presets de data no filtro; Taxa de passagem por origem com conversão etapa 2 > venda; Motivos de perda em pizza por motivo, etapa, origem e vendedor';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -1043,28 +1043,27 @@
           return kpi('Conversão etapa 2 > venda', x.conversao == null ? '–' : pct(x.conversao),
             '<span title="' + esc(dicaConv) + '" class="dica">' + plural(x.vendas_total || 0, 'venda', 'vendas') + ' ÷ ' + num(x.pessoas_e2) + ' em contato</span>', true);
         };
-        var linhaTab = function (e) {
-          if (!temEtapa(e)) return ['<span class="fraco">' + esc(e.etapa) + '</span>', '–', '–', '–', '–', num(e.vendas), '–'];
-          return ['<strong>' + e.ordem + '. ' + esc(e.etapa) + '</strong>', num(e.entraram), num(e.avancaram), pct(e.passagem),
-            num(e.perdidos), num(e.vendas), num(e.abertos)];
-        };
-        var cab = ['Etapa', { t: 'Negócios que entraram', dica: dicaEnt }, 'Passaram', 'Passagem', 'Perdidos', 'Vendas', 'Abertos'];
         var quadros = origens.map(function (o) {
           var ls = todas.filter(function (e) { return e.origem === o; });
           var x = ls[0] || {};
+          var mx = Math.max.apply(null, ls.filter(temEtapa).map(function (e) { return Number(e.entraram); }).concat([1]));
+          // barra: comprimento = entraram (relativo à maior etapa da origem); parte escura = quantos passaram
+          var barra = function (e) {
+            var w = Number(e.entraram) / mx * 100, f = Number(e.entraram) ? Number(e.avancaram) / Number(e.entraram) * 100 : 0;
+            return '<div class="oc-barra" title="' + esc(num(e.entraram) + ' entraram, ' + num(e.avancaram) + ' avançaram') + '"><span style="width:' + w.toFixed(1) + '%"><i style="width:' + Math.min(100, f).toFixed(1) + '%"></i></span></div>';
+          };
           var tab = ls.filter(function (e) { return temEtapa(e) || Number(e.vendas); }).map(function (e) {
             if (!temEtapa(e)) return ['<span class="fraco">Sem negócio no CRM</span>', '–', '–', '–', num(e.vendas)];
-            return [e.ordem + '. ' + esc(String(e.etapa).replace(/\s*\(.*\)$/, '')), num(e.entraram), num(e.avancaram), pct(e.passagem), num(e.vendas)];
+            return [e.ordem + '. ' + esc(String(e.etapa).replace(/\s*\(.*\)$/, '')) + barra(e), num(e.entraram), num(e.avancaram), pct(e.passagem), num(e.vendas)];
           });
           return '<section class="bloco origem-card"><header class="oc-topo"><h2>' + esc(o) + '</h2>' +
             '<div class="oc-conv" title="' + esc(dicaConv) + '"><b>' + (x.conversao == null ? '–' : pct(x.conversao)) + '</b><span>conversão etapa 2 > venda</span>' +
             '<em>' + plural(x.vendas_total || 0, 'venda', 'vendas') + ' ÷ ' + num(x.pessoas_e2) + ' em contato</em></div></header>' +
-            tabela(['Etapa', { t: 'Entraram', dica: dicaEnt }, 'Avançaram', '%', 'Vendas'], tab, [1, 2, 3, 4]) + '</section>';
+            tabela(['Etapa', { t: 'Entraram', dica: dicaEnt }, 'Avançaram', '%', 'Vendas'], tab, [1, 2, 3, 4]) +
+            '<p class="fraco oc-leg"><i class="oc-l1"></i>entraram <i class="oc-l2"></i>avançaram</p></section>';
         }).join('');
         corpo.innerHTML = '<div class="kpis kpis-2">' + conv(g0) + kpi('Vendas comerciais', num(g0.vendas_total), 'crédito pelo link do vendedor') + '</div>' +
           bloco('Funil do CRM', 'Negócios que entraram em cada etapa no período e quantos passaram adiante (etapa seguinte ou venda comercial).', funil) +
-          bloco('Por etapa', 'Perdidos: perdas comerciais paradas na etapa (sem as saídas CS). Vendas: vendas comerciais do período (crédito pelo link do vendedor), na etapa em que o negócio estava na compra. Abertos: ainda parados ali.',
-            tabela(cab, geral.map(linhaTab), [1, 2, 3, 4, 5, 6])) +
           (origens.length ? '<h3 class="sub-h sec-h">Por origem</h3><p class="fraco nota">Origem do negócio (último evento com origem). Venda pela origem do lead antes da compra; venda sem lead conta no funil padrão.</p>' +
             '<div class="origens">' + quadros + '</div>' : '');
       });
@@ -1128,13 +1127,17 @@
         var etapas = {};
         linhas.forEach(function (l) { var k = l.etapa_ordem == null ? 99 : l.etapa_ordem; etapas[k] = etapas[k] || { rotulo: (l.etapa_ordem == null ? '' : l.etapa_ordem + '. ') + l.etapa, valor: 0, k: k }; etapas[k].valor += Number(l.qtd); });
         var etapaItens = Object.keys(etapas).map(function (k) { return etapas[k]; });
+        var porEtapa = etapaItens.slice().sort(function (a, b) { return a.k - b.k; }).map(function (e) {
+          return card(esc(e.rotulo), linhas.filter(function (l) { return (l.etapa_ordem == null ? 99 : l.etapa_ordem) === e.k; }));
+        }).join('');
         corpo.innerHTML = '<div class="kpis kpis-2">' +
-          kpi('Perdas no período', num(total), 'inclui detrator/blocklist e reembolso, que o comercial também registra', true) +
+          kpi('Perdas no período', num(total), '', true) +
           kpi('Motivos diferentes', num(agrupa(linhas, 'motivo').length), '') + '</div>' +
           '<div class="duas">' +
           bloco('Por motivo', 'Todas as perdas do período. Top 6 + outros motivos.', pizza(agrupa(linhas, 'motivo'), { vazio: 'Nenhuma perda no período.', rotulo: 'Perdas por motivo' })) +
           bloco('Etapa da perda', 'Última etapa do negócio antes de ser perdido.', pizza(etapaItens, { semOutros: true, outros: 'Outras etapas', rotulo: 'Perdas por etapa',
             ordem: function (it) { return it.slice().sort(function (a, b) { return a.k - b.k; }); } })) + '</div>' +
+          bloco('Motivos por etapa', 'Motivos de perda em cada etapa do CRM (última etapa antes da perda). % sobre o total de perdas do período.', porEtapa ? '<div class="pz-grade">' + porEtapa + '</div>' : '<p class="painel-msg vazio">Nenhuma perda no período.</p>') +
           bloco('Motivo de perda por origem', 'Origem do negócio. % sobre o total de perdas do período.', porOrigem ? '<div class="pz-grade">' + porOrigem + '</div>' : '<p class="painel-msg vazio">Nenhuma perda no período.</p>') +
           bloco('Motivos por vendedor', 'Dono do negócio no CRM. % sobre o total de perdas do período.', porVend ? '<div class="pz-grade">' + porVend + '</div>' : '<p class="painel-msg vazio">Nenhuma perda no período.</p>');
       });
