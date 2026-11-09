@@ -9,7 +9,8 @@
 --    evento com negócio antes da compra) e a etapa em que ele estava na compra.
 -- 2. cic_taxa_passagem: coluna vendas = vendas comerciais do período pela etapa
 --    do negócio na compra; vendas sem negócio no CRM antes da compra numa linha
---    à parte (ordem null). Filtro de vendedor pelo utm.
+--    à parte (ordem null). Filtro de vendedor pelo utm. Passaram e Abertos
+--    também usam a venda comercial casada com o negócio (não mais qualquer venda).
 -- 3. cic_ciclo_venda: casos de venda = vendas comerciais do período (crédito
 --    pelo utm), ciclo = compra − entrada do negócio; sem negócio entra em
 --    "sem histórico". Perdas sem mudança.
@@ -51,7 +52,9 @@ begin
   return query
   with neg as (select * from public.cic_negocios() n where p_vendedor is null or p_vendedor = '' or (p_vendedor = '_sem' and n.vendedor_slug is null) or n.vendedor_slug = p_vendedor),
   ent as (select distinct e.negocio_id, c.ordem from public.unnichat_eventos e join public.crm_etapas c on c.nome_unnichat = e.etapa_crm where e.event_ts >= v_ini and e.event_ts < v_fim),
-  b as (select ent.ordem, neg.*, (neg.venda_ts is not null and neg.venda_ts < v_fim) vendeu from ent join neg on neg.negocio_id = ent.negocio_id),
+  -- negócio "vendeu" = tem venda comercial casada (regra padrão), usado em Passaram e Abertos
+  vneg as (select distinct v.negocio_id from public.cic_vendas_crm('2000-01-01'::date, p_fim) v where v.negocio_id is not null),
+  b as (select ent.ordem, neg.*, (neg.negocio_id in (select vneg.negocio_id from vneg)) vendeu from ent join neg on neg.negocio_id = ent.negocio_id),
   -- vendas comerciais do período, crédito pelo utm, pela etapa do negócio na compra
   vc as (select * from public.cic_vendas_crm(p_inicio, p_fim) v where p_vendedor is null or p_vendedor = '' or v.vendedor_slug = p_vendedor)
   select x.* from (

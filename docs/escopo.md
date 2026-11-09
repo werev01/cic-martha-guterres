@@ -245,6 +245,8 @@ Links de venda na Minha página, cada um com o cupom e botão de copiar
   negócio antes da compra) e com a etapa em que ele estava na compra (`cic_vendas_crm`).
   Venda sem negócio no CRM antes da compra: na Taxa de passagem fica numa linha à parte
   ("Sem negócio no CRM antes da venda"); no Ciclo entra em "sem histórico".
+  Na Taxa de passagem, "Passaram" e "Abertos" também consideram só a venda comercial
+  casada com o negócio.
 - Rótulos: na Taxa de passagem, "Negócios que entraram" (um negócio por entrada no CRM; a
   mesma pessoa pode ter mais de um). Leads da Home = pessoas únicas pelo telefone.
 
