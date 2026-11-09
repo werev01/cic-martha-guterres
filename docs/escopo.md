@@ -224,6 +224,14 @@ Links de venda na Minha página, cada um com o cupom e botão de copiar
   e bloqueio pela última copy antes do fato. Substitui o painel "Por código de copy".
 - Família de automação (06/11): copy sem o número de versão final (`_1.0.1`), só copies
   que não são campanha de broadcast. Mesmas métricas de CRM da campanha.
+- Leads etapa 0 no resumo (09/11): pessoa única (`pessoa_chave`) que entrou em
+  "0. Base/Entrada" no período com copy de campanha de broadcast do período ou de família de
+  automação (mesma regra das tabelas). % = leads ÷ templates entregues de broadcasts +
+  automações. Custo por lead E0 = custo de broadcasts + automações ÷ leads (vendedor fica
+  de fora, é depois do lead); sem lead, "–". A soma das campanhas e famílias pode passar o
+  total do resumo: quem passou por mais de uma copy conta uma vez no resumo.
+- Campanhas (09/11): entregues e falhas com % sobre contatos (também nos lotes); leads E0
+  com % sobre entregues; coluna Custo/lead E0 = custo da campanha ÷ leads E0.
 
 ## Regras gerais de contagem (decidido em 06/11/2026, auditoria)
 

@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-06g';
-  var MUDANCAS = 'Mensageria: custo de vendedor inativo com conversa no período, com etiqueta inativo';
+  var BUILD = '2026-11-09a';
+  var MUDANCAS = 'Mensageria: cards Leads etapa 0 e Custo por lead E0; campanhas com % de entregues, falhas e leads e coluna Custo/lead E0';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -1090,6 +1090,8 @@
           kpi('Entrega', pct(re.taxa_entrega), 'entregues ÷ enviados') +
           kpi('Leitura', pct(re.taxa_leitura), num(re.lidos) + ' lidos') +
           kpi('Cliques', pct(re.taxa_cliques), num(re.cliques) + ' cliques únicos · só automações') +
+          kpi('Leads etapa 0', num(re.leads_e0), re.taxa_leads_e0 == null ? '–' : pct(re.taxa_leads_e0) + ' dos entregues') +
+          kpi('Custo por lead E0', re.custo_por_lead_e0 == null ? '–' : reais(re.custo_por_lead_e0), 'broadcasts + automações ÷ leads') +
           kpi('Bloqueios', num(re.bloqueios), pct(re.taxa_bloqueios) + ' dos entregues · ' + num(re.bloqueios_com_copy) + ' com copy') + '</div>';
         var origem = barrasH([
           { rotulo: 'Broadcasts', valor: re.custo_broadcast || 0, cor: COR.comercial },
@@ -1113,10 +1115,11 @@
         var linhasCamp = (d.campanhas || []).map(function (c, i) {
           var cab = '<tr class="camp" data-camp="' + i + '" tabindex="0" aria-expanded="false">' +
             '<td><div class="camp-nome"><span class="seta">▸</span><div><div class="nome-longo">' + esc(c.campanha) + '</div><div class="fraco">' + plural(c.broadcasts, 'lote', 'lotes') + '</div></div></div></td>' +
-            '<td>' + dataHora(c.ultimo) + '</td><td class="n">' + num(c.contatos) + '</td><td class="n">' + num(c.entregues) + '</td>' +
-            '<td class="n">' + num(c.lidos) + de(c.lidos, c.entregues) + '</td><td class="n">' + semCli + '</td><td class="n">' + num(c.falhas) + '</td>' +
+            '<td>' + dataHora(c.ultimo) + '</td><td class="n">' + num(c.contatos) + '</td><td class="n">' + num(c.entregues) + de(c.entregues, c.contatos) + '</td>' +
+            '<td class="n">' + num(c.lidos) + de(c.lidos, c.entregues) + '</td><td class="n">' + semCli + '</td><td class="n">' + num(c.falhas) + de(c.falhas, c.contatos) + '</td>' +
             '<td class="n"><strong>' + reais(c.custo) + '</strong></td>' +
-            '<td class="n">' + num(c.leads_e0) + '<div class="fraco">' + custoPor(c.custo, c.leads_e0) + '/lead</div></td>' +
+            '<td class="n">' + num(c.leads_e0) + de(c.leads_e0, c.entregues) + '</td>' +
+            '<td class="n">' + custoPor(c.custo, c.leads_e0) + '</td>' +
             '<td class="n">' + num(c.leads_e2) + de(c.leads_e2, c.leads_e0) + '</td>' +
             '<td class="n">' + num(c.vendas) + (Number(c.vendas) > 0 ? '<div class="fraco">' + custoPor(c.custo, c.vendas) + '/venda</div>' : '') + '</td>' +
             '<td class="n">' + num(c.bloqueios) + de(c.bloqueios, c.entregues) + '</td></tr>';
@@ -1124,12 +1127,12 @@
             var lt = (String(l.nome).match(/_(\d+_LT\d+)$/i) || [])[1];
             return '<tr class="lote" data-de="' + i + '" hidden><td><div class="nome-longo">' + esc(lt ? lt.replace('_', ' · ') : l.nome) + '</div>' +
               '<div class="fraco">' + esc(l.template || '–') + (l.categoria ? ' · ' + esc(l.categoria) : '') + '</div></td>' +
-              '<td>' + dataHora(l.disparo) + '</td><td class="n">' + num(l.contatos) + '</td><td class="n">' + num(l.entregues) + '</td>' +
-              '<td class="n">' + num(l.lidos) + de(l.lidos, l.entregues) + '</td><td class="n">' + semCli + '</td><td class="n">' + num(l.falhas) + '</td>' +
-              '<td class="n">' + reais(l.custo) + '</td><td colspan="4"></td></tr>';
+              '<td>' + dataHora(l.disparo) + '</td><td class="n">' + num(l.contatos) + '</td><td class="n">' + num(l.entregues) + de(l.entregues, l.contatos) + '</td>' +
+              '<td class="n">' + num(l.lidos) + de(l.lidos, l.entregues) + '</td><td class="n">' + semCli + '</td><td class="n">' + num(l.falhas) + de(l.falhas, l.contatos) + '</td>' +
+              '<td class="n">' + reais(l.custo) + '</td><td colspan="5"></td></tr>';
           }).join('');
         }).join('');
-        var cabCamp = ['Campanha', 'Último disparo', 'Contatos', 'Entregues', 'Lidos', 'Cliques', 'Falhas', 'Custo', 'Leads (E0)', 'Em contato (E2)', 'Vendas', 'Bloqueios'];
+        var cabCamp = ['Campanha', 'Último disparo', 'Contatos', 'Entregues', 'Lidos', 'Cliques', 'Falhas', 'Custo', 'Leads (E0)', 'Custo/lead E0', 'Em contato (E2)', 'Vendas', 'Bloqueios'];
         var tabCamp = '<div class="tabela-rolagem"><table class="tabela tabela-camp"><thead><tr>' + cabCamp.map(function (c, i) {
           return '<th' + (i > 1 ? ' class="n"' : '') + '>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' + linhasCamp + '</tbody></table></div>';
         var aus = (d.automacoes || []).map(function (a) {
