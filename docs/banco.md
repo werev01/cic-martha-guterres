@@ -44,6 +44,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261106_0024_mensageria_inativo.sql` | `cic_mensageria`: vendedor inativo com conversa no período entra no custo de vendedor e no custo por dia; item de vendedores ganha `ativo` |
 | `20261106_0025_performance.sql` | performance sem mudar número: colunas geradas `pessoa_chave`/`copy_familia` + índices; `cic_negocios` e `cic_lrt` agregando numa passada; lateral com índice em `cic_mensageria` e `cic_meta_funil`; 1ª venda do mês calculada uma vez em `cic_desempenho`, `cic_minha_pagina` e `cic_meta_mes`; `pessoa_chave` em `cic_contatos_em_contato` e `cic_kpis_comercial` |
 | `20261109_0026_mensageria_leads_e0.sql` | `cic_mensageria`: resumo ganha `leads_e0`, `taxa_leads_e0` e `custo_por_lead_e0` |
+| `20261109_0027_vendas_crm_funil.sql` | interna `cic_vendas_crm` (venda comercial x negócio e etapa na compra); `cic_taxa_passagem` e `cic_ciclo_venda` contam só venda comercial com crédito pelo utm; `cic_meta_funil` usa `cic_config.funil_padrao` no lugar de "Sem funil" |
 
 ## Camada tratada (RPCs do app)
 

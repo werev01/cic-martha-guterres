@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-09a';
-  var MUDANCAS = 'Mensageria: cards Leads etapa 0 e Custo por lead E0; campanhas com % de entregues, falhas e leads e coluna Custo/lead E0';
+  var BUILD = '2026-11-09b';
+  var MUDANCAS = 'Taxa de passagem e Ciclo contam só venda comercial (crédito pelo link); funil padrão no lugar de Sem funil; rótulos e dicas de leads e negócios';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -363,7 +363,10 @@
   function tabela(cab, linhas, num) {
     num = num || [];
     return '<div class="tabela-rolagem"><table class="tabela"><thead><tr>' + cab.map(function (c, i) {
-      return '<th' + (num.indexOf(i) >= 0 ? ' class="n"' : '') + '>' + esc(c) + '</th>';
+      // cabeçalho pode ser texto ou { t, dica } (dica aparece ao passar o mouse)
+      var txt = typeof c === 'object' ? c.t : c, dica = typeof c === 'object' ? c.dica : '';
+      return '<th' + (num.indexOf(i) >= 0 ? ' class="n"' : '') + (dica ? ' title="' + esc(dica) + '"' : '') + '>' +
+        (dica ? '<span class="dica">' + esc(txt) + '</span>' : esc(txt)) + '</th>';
     }).join('') + '</tr></thead><tbody>' + linhas.map(function (l) {
       return '<tr>' + l.map(function (c, i) { return '<td' + (num.indexOf(i) >= 0 ? ' class="n"' : '') + '>' + c + '</td>'; }).join('') + '</tr>';
     }).join('') + '</tbody></table></div>';
@@ -395,7 +398,9 @@
         '<div class="hm-ho-c"><span>Ontem</span><b>' + ontem + '</b></div>' + (legenda ? '<div class="hm-ho-cap">' + esc(legenda) + '</div>' : '') + '</div>' : '') +
       '</div>';
   }
-  function hmSplit(rotulo, valor) { return '<div>' + esc(rotulo) + '<b>' + valor + '</b></div>'; }
+  function hmSplit(rotulo, valor, dica) {
+    return '<div' + (dica ? ' title="' + esc(dica) + '"' : '') + '>' + (dica ? '<span class="dica">' + esc(rotulo) + '</span>' : esc(rotulo)) + '<b>' + valor + '</b></div>';
+  }
   function rsOuTraco(v) { return v === null || v === undefined ? '–' : rs(v); }
 
   function montaHome(d, largura) {
@@ -409,7 +414,7 @@
         '<div class="hm-ho"><div class="hm-ho-c on"><span>Hoje · parcial</span><b>' + rsOuTraco(h.ticket_liquido) + '</b></div>' +
         '<div class="hm-ho-c"><span>Ontem</span><b>' + rsOuTraco(o.ticket_liquido) + '</b></div><div class="hm-ho-cap">ticket líquido</div></div></div>' +
       '</div><div class="hm-grid">' +
-      hmCard('Conversão · Em Contato → Venda', pct(p.conversao), hmSplit('Em Contato', num(p.em_contato)) + hmSplit('Leads', num(p.leads)), pct(h.conversao), pct(o.conversao)) +
+      hmCard('Conversão · Em Contato → Venda', pct(p.conversao), hmSplit('Em Contato', num(p.em_contato)) + hmSplit('Leads', num(p.leads), 'pessoas únicas (telefone)'), pct(h.conversao), pct(o.conversao)) +
       (d.plataformas || []).map(function (pl) {
         return hmCard('Faturamento ' + esc(pl.plataforma), rs(pl.liquido), hmSplit('bruto', rs(pl.bruto)) + hmSplit('vendas', num(pl.vendas)));
       }).join('') +
@@ -980,21 +985,25 @@
       rpcGestao('cic_taxa_passagem', true).then(function (r) {
         if (idc !== pedido) return;
         if (r.error) return falhou(corpo, r.error);
-        var et = r.data || [];
+        var todas = r.data || [];
+        // linha sem etapa (ordem nula) = vendas sem negócio no CRM antes da compra: só na tabela
+        var et = todas.filter(function (e) { return e.ordem !== null && e.ordem !== undefined; });
+        var dicaEnt = 'um negócio por entrada no CRM; a mesma pessoa pode ter mais de um';
         var max = Math.max.apply(null, et.map(function (e) { return Number(e.entraram); }).concat([1]));
         var funil = '<div class="funil">' + et.map(function (e) {
           return '<div class="funil-etapa"><div class="funil-nome"><strong>' + e.ordem + '. ' + esc(e.etapa) + '</strong>' +
-            '<span>' + num(e.entraram) + ' entraram</span></div>' +
+            '<span title="' + dicaEnt + '">' + num(e.entraram) + ' negócios entraram</span></div>' +
             '<div class="funil-trilho"><div class="funil-barra" style="width:' + (Number(e.entraram) / max * 100).toFixed(1) + '%"></div></div>' +
             '<div class="funil-pct"><strong>' + pct(e.passagem, 0) + '</strong><span>passaram</span></div></div>';
         }).join('') + '</div>';
-        var tab = et.map(function (e) {
+        var tab = todas.map(function (e) {
+          if (e.ordem === null || e.ordem === undefined) return ['<span class="fraco">' + esc(e.etapa) + '</span>', '–', '–', '–', '–', num(e.vendas), '–'];
           return ['<strong>' + e.ordem + '. ' + esc(e.etapa) + '</strong>', num(e.entraram), num(e.avancaram), pct(e.passagem),
             num(e.perdidos), num(e.vendas), num(e.abertos)];
         });
         corpo.innerHTML = bloco('Funil do CRM', 'Negócios que entraram em cada etapa no período e quantos passaram adiante (etapa seguinte ou venda na Hubla).', funil) +
-          bloco('Por etapa', 'Perdidos: perdas comerciais paradas na etapa (sem as saídas CS). Vendas: venda paga na Hubla, casada pelo telefone. Abertos: ainda parados ali.',
-            tabela(['Etapa', 'Entraram', 'Passaram', 'Passagem', 'Perdidos', 'Vendas', 'Abertos'], tab, [1, 2, 3, 4, 5, 6]));
+          bloco('Por etapa', 'Perdidos: perdas comerciais paradas na etapa (sem as saídas CS). Vendas: vendas comerciais do período (crédito pelo link do vendedor), na etapa em que o negócio estava na compra. Abertos: ainda parados ali.',
+            tabela(['Etapa', { t: 'Negócios que entraram', dica: dicaEnt }, 'Passaram', 'Passagem', 'Perdidos', 'Vendas', 'Abertos'], tab, [1, 2, 3, 4, 5, 6]));
       });
     });
   }
@@ -1051,7 +1060,7 @@
         var lado = function (tipo, titulo, sub, cor) {
           var t = linhas.filter(function (l) { return l.tipo === tipo && l.vendedor_slug === '_time'; })[0];
           if (!t || !Number(t.casos)) return bloco(titulo, sub, '<p class="painel-msg vazio">Sem casos no período.</p>' +
-            (t && Number(t.sem_historico) ? '<p class="fraco">' + plural(t.sem_historico, 'caso', 'casos') + ' sem histórico (desfecho a menos de 6 min da entrada).</p>' : ''));
+            (t && Number(t.sem_historico) ? '<p class="fraco">' + plural(t.sem_historico, 'caso', 'casos') + ' sem histórico (sem negócio no CRM antes da compra ou desfecho a menos de 6 min da entrada).</p>' : ''));
           var vend = linhas.filter(function (l) { return l.tipo === tipo && l.vendedor_slug !== '_time'; });
           return bloco(titulo, sub,
             '<div class="kpis kpis-2">' + kpi('Mediana', horas(t.mediana_h), plural(t.casos, 'caso', 'casos'), true) + kpi('Média', horas(t.media_h), '') + '</div>' +
@@ -1061,10 +1070,10 @@
             '<h3 class="sub-h">Por vendedor</h3>' + tabela(['Vendedor', 'Casos', 'Mediana', 'Média'], vend.map(function (v) {
               return [pessoa(v.vendedor_slug === '_sem' ? null : v.vendedor_nome, v.vendedor_ativo === false), num(v.casos), horas(v.mediana_h), horas(v.media_h)];
             }), [1, 2, 3]) +
-            (Number(t.sem_historico) ? '<p class="fraco nota">' + plural(t.sem_historico, 'caso', 'casos') + ' sem histórico ficaram fora (desfecho a menos de 6 min da entrada no CRM).</p>' : ''));
+            (Number(t.sem_historico) ? '<p class="fraco nota">' + plural(t.sem_historico, 'caso', 'casos') + ' sem histórico ficaram fora (sem negócio no CRM antes da compra ou desfecho a menos de 6 min da entrada).</p>' : ''));
         };
         corpo.innerHTML = '<div class="duas">' +
-          lado('venda', 'Até a venda', 'Da entrada do negócio no CRM até a venda paga na Hubla (casada pelo telefone).', COR.comercial) +
+          lado('venda', 'Até a venda', 'Da entrada do negócio no CRM até a venda comercial na Hubla (crédito pelo link do vendedor).', COR.comercial) +
           lado('perda', 'Até a perda', 'Da entrada até a perda comercial (sem as saídas CS).', COR.perda) + '</div>';
       });
     });
