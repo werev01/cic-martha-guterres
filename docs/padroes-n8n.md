@@ -3,12 +3,19 @@
 Vale pra todo workflow da operação. Se um caso não estiver coberto aqui, pergunte
 antes de inventar e registre a decisão neste arquivo.
 
-Última atualização: 04/11/2026
+Última atualização: 10/11/2026
 
 ## Onde fica
 
-- Instância: n8n cloud compartilhada da WeRev.
-- Pasta: `cic-martha-guterres`. Todo workflow da Martha mora nela.
+- Instância: n8n self-hosted na VPS da TurboCloud, URL base `https://n8n.werev.com.br`.
+  Não há projetos de equipe: tudo fica no projeto pessoal
+  `Nirlando Junior <ferramentas@werev.com.br>`.
+- Edição: Community registrada (chave gratuita, em Settings > Usage and plan). Sem o
+  registro, a instância não tem pastas. Numa VPS nova, registrar antes de criar
+  workflows.
+- Pastas: uma por operação, com o nome do repo (`cic-martha-guterres`,
+  `cic-vanessa-oliveira`), na raiz do projeto pessoal. Todo workflow da operação mora
+  na pasta dela. Mover workflow de pasta não muda id, path de webhook nem status ativo.
 - Workflows criados do zero. Não duplicar nem importar workflow de outra operação.
 
 ## Nome dos workflows
@@ -18,10 +25,10 @@ Formato: `[MARTHA] <Fonte> · <Função>`
 Exemplos:
 - `[MARTHA] Hubla · Vendas`
 - `[MARTHA] Hubla · Reembolsos`
-- `[MARTHA] TMB · Vendas`
+- `[MARTHA] Hubla · Carrinho`
 - `[MARTHA] Unnichat · Eventos CRM`
-- `[MARTHA] Unnichat · Coleta de disparos`
-- `[MARTHA] Callix · Ligações`
+- `[MARTHA] Unnichat · Coleta de broadcasts`
+- `[MARTHA] Unnichat · Coleta de automações`
 - `[MARTHA] Erros`
 
 Fonte com inicial maiúscula, função curta e no plural quando fizer sentido.
@@ -30,9 +37,9 @@ Fonte com inicial maiúscula, função curta e no plural quando fizer sentido.
 
 Todo workflow leva:
 - `martha` (obrigatória, identifica o cliente);
-- uma de fonte: `fonte:unnichat`, `fonte:callix`, `fonte:hubla`, `fonte:tmb`;
-- uma de tipo: `tipo:webhook` (recebe push), `tipo:agendado` (puxa por cron) ou
-  `tipo:erro`.
+- uma de fonte: `fonte:unnichat`, `fonte:hubla`;
+- uma de tipo: `tipo:webhook` (recebe push), `tipo:agendado` (puxa por cron),
+  `tipo:manual` (roda só pelo editor, fica desativado) ou `tipo:erro`.
 
 ## Credenciais
 
@@ -42,10 +49,8 @@ Nunca compartilhar credencial com outra operação.
 |---|---|---|
 | `[MARTHA] Supabase service role` | Supabase API (chave `service_role` legada, JWT) | gravar nas tabelas brutas |
 | `[MARTHA] Unnichat` | Header Auth (token da conta da Martha) | chamadas à API do Unnichat |
-| `[MARTHA] Callix` | Header Auth | chamadas à API da Callix |
 | `[MARTHA] Hubla` | Header Auth | validar o token do webhook / chamadas à API |
-| `[MARTHA] TMB` | Header Auth | idem |
-| `[MARTHA] E-mail alertas` | Gmail OAuth2 (`ferramentas@werev.com.br`) | workflow de erro |
+| `[MARTHA] E-mail alertas` | Gmail OAuth2, autorizado com `mitsuo@werev.com.br` | workflow de erro (envia para o grupo `ferramentas@werev.com.br`) |
 | `[MARTHA] Webhook token` | Header Auth (`x-cic-token`) | validar webhooks chamados pelo Unnichat |
 
 Regra: chave e token só dentro de credencial. Nunca colar chave em header, URL ou
@@ -53,18 +58,22 @@ campo de nó (isso vaza no export do JSON).
 
 ## Webhooks
 
-Path: `/webhook/martha-guterres/<fonte>/<evento>`
+URL completa: `https://n8n.werev.com.br/webhook/<slug>/<fonte>/<evento>`
+(slug da Martha: `martha-guterres`).
 
-| Fonte | Path |
+| Workflow | Path |
 |---|---|
-| Hubla | `/webhook/martha-guterres/hubla/eventos` |
-| TMB | `/webhook/martha-guterres/tmb/eventos` |
-| Unnichat | `/webhook/martha-guterres/unnichat/eventos` |
-| Callix | `/webhook/martha-guterres/callix/eventos` (se a Callix for por push) |
+| `[MARTHA] Hubla · Vendas` | `/webhook/martha-guterres/hubla/vendas` |
+| `[MARTHA] Hubla · Carrinho` | `/webhook/martha-guterres/hubla/carrinho` |
+| `[MARTHA] Hubla · Recusadas` | `/webhook/martha-guterres/hubla/recusadas` |
+| `[MARTHA] Hubla · Reembolsos` | `/webhook/martha-guterres/hubla/reembolsos` |
+| `[MARTHA] Unnichat · Eventos CRM` | `/webhook/martha-guterres/unnichat/eventos` |
+| `[MARTHA] Unnichat · Blocklist` | `/webhook/martha-guterres/unnichat/blocklist` |
+| `[MARTHA] Unnichat · Conversas do dia` | `/webhook/martha-guterres/unnichat/conversas-dia/reprocessar` |
 
-- Um path por fonte; o workflow separa o tipo de evento dentro (Switch pelo campo de
-  tipo do payload). Se a fonte exigir um endpoint por evento, usar
-  `/<fonte>/<evento>` (ex.: `/hubla/vendas`).
+- Um endpoint por evento quando a fonte manda cada evento separado (caso da Hubla).
+  Quando a fonte manda tudo num endpoint só, o workflow separa o tipo dentro (Switch
+  pelo campo de tipo do payload).
 - Quando a fonte manda token de verificação (ex.: header da Hubla), o webhook valida
   pela autenticação do próprio nó Webhook (Header Auth) e recusa se não bater. Com
   Header Auth, o n8n devolve 403 (esperado pelo comportamento padrão do n8n; ainda
@@ -106,7 +115,8 @@ Body: objeto ou array de objetos com os campos do contrato
 - Workflow `[MARTHA] Erros`, com tag `tipo:erro`, começando pelo nó Error Trigger.
 - Configurado como "Error workflow" nas settings de TODOS os outros workflows da
   Martha.
-- Manda e-mail para `ferramentas@werev.com.br`:
+- Manda e-mail para o grupo `ferramentas@werev.com.br` (credencial Gmail autorizada
+  com `mitsuo@werev.com.br`):
   - assunto: `[MARTHA] Erro em <nome do workflow>`;
   - corpo: workflow, nó que falhou, mensagem de erro, horário, link da execução.
 - O error workflow só dispara em execução de produção (trigger ativo), não em
@@ -123,9 +133,20 @@ Body: objeto ou array de objetos com os campos do contrato
   a credencial por nome/id). O repo é público via GitHub Pages.
 - Mensagem de commit: `n8n: <nome do workflow> (<o que mudou>)`.
 
+## Histórico da migração (10/11/2026)
+
+- Os workflows saíram do n8n cloud e foram para a VPS (`n8n.werev.com.br`), com os
+  mesmos nomes, tags, credenciais e paths.
+- `[MARTHA] Unnichat · Blocklist` fica ativo nos dois lados (cloud e VPS) até os
+  broadcasts antigos do Unnichat pararem de chamar a URL do cloud.
+- Os 4 eventos da Hubla (Vendas, Carrinho, Recusadas e Reembolsos) foram confirmados
+  chegando na VPS em 10/11/2026. Os workflows da Hubla no cloud ficam liberados para
+  desativar.
+- Backup diário do banco do n8n na pasta `n8n-backups-werev` do Google Drive.
+
 ## Checklist de workflow novo
 
-- [ ] Nome no padrão e dentro da pasta `cic-martha-guterres`
+- [ ] Nome no padrão e dentro da pasta da operação na VPS (`cic-martha-guterres`)
 - [ ] Tags `martha`, `fonte:*`, `tipo:*`
 - [ ] Credenciais `[MARTHA]`, nenhuma chave solta em nó
 - [ ] Path de webhook com `martha-guterres`
