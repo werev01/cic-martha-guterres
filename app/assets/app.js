@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-09c';
-  var MUDANCAS = 'Presets de data no filtro; Taxa de passagem por origem com conversão etapa 2 > venda; Motivos de perda em pizza por motivo, etapa, origem e vendedor';
+  var BUILD = '2026-11-12a';
+  var MUDANCAS = 'Login espelhado: um login para todos os clientes, seletor só quando a pessoa tem mais de um; cliente Vanessa Oliveira';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -79,35 +79,98 @@
     return 'Não deu certo: ' + m;
   }
 
-  // ---------- cliente (operação) ----------
+  // ---------- clientes (operações) ----------
+  // Login espelhado: um client do Supabase por cliente, cada um com a sua sessão
+  // (storageKey próprio). Só o client do cliente do link lê o token da URL.
+  var sbs = {};        // slug -> client do Supabase
+  var validos = [];    // clientes em que o login vale (sessão + perfil ativo)
+  var slugDoLink = null;
+
+  function clientDe(c) {
+    if (!sbs[c.slug]) {
+      sbs[c.slug] = window.supabase.createClient(c.supabaseUrl, c.chavePublica, {
+        auth: {
+          storageKey: 'cic-auth-' + c.slug,
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: c.slug === slugDoLink,
+          flowType: 'implicit'
+        }
+      });
+    }
+    return sbs[c.slug];
+  }
+
   function escolherCliente(c) {
     cliente = c;
-    guardar('cic-cliente', c.slug);
+    sb = clientDe(c);
     $('acesso-cliente').textContent = c.nome;
     $('lateral-cliente').textContent = c.nome;
     document.title = 'CIC · ' + c.nome;
-    sb = window.supabase.createClient(c.supabaseUrl, c.chavePublica, {
-      auth: {
-        storageKey: 'cic-auth-' + c.slug,
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        flowType: 'implicit'
-      }
+  }
+
+  // Login vale no cliente quando há sessão e cic_meu_papel() devolve perfil ativo.
+  // Sessão sem perfil é encerrada naquele cliente.
+  function validar(c) {
+    var cli = clientDe(c);
+    return cli.rpc('cic_meu_papel').then(function (r) {
+      if (!r.error && r.data) return c;
+      if (r.error) console.warn('[CIC] ' + c.slug + ': ' + r.error.message);
+      return cli.auth.signOut({ scope: 'local' }).then(function () { return null; }, function () { return null; });
+    }, function () { return null; });
+  }
+
+  // Confere as sessões guardadas em todos os clientes
+  function avaliarSessoes() {
+    return Promise.all(clientes.map(function (c) {
+      return clientDe(c).auth.getSession().then(function (r) {
+        return r.data && r.data.session ? validar(c) : null;
+      }, function () { return null; });
+    })).then(function (lista) { return lista.filter(Boolean); });
+  }
+
+  function entrar(c) {
+    escolherCliente(c);
+    guardar('cic-cliente', c.slug);
+    $('lat-trocar').hidden = validos.length < 2;
+    sb.auth.getSession().then(function (r) {
+      if (r.data && r.data.session) carregarCic(r.data.session);
+      else mostrarLogin();
     });
   }
 
+  // Depois do login: nenhum, um ou vários clientes válidos
+  function decidir(lembrar) {
+    if (!validos.length) { mostrarLogin(); return; }
+    if (validos.length === 1) { entrar(validos[0]); return; }
+    var ultimo = lembrar && validos.filter(function (c) { return c.slug === ler('cic-cliente'); })[0];
+    if (ultimo) entrar(ultimo);
+    else mostrarSeletor();
+  }
+
+  function mostrarLogin(texto) {
+    perfil = null;
+    menus = [];
+    cliente = null;
+    $('acesso-cliente').textContent = '';
+    document.title = 'CIC';
+    mostrarAcesso('v-login');
+    msg('login-msg', texto || '');
+  }
+
   function mostrarSeletor() {
+    perfil = null;
     var lista = $('lista-clientes');
     lista.innerHTML = '';
-    clientes.forEach(function (c) {
+    validos.forEach(function (c) {
       var b = document.createElement('button');
       b.type = 'button';
       b.textContent = c.nome;
-      b.addEventListener('click', function () { escolherCliente(c); iniciarSessao({}); });
+      b.addEventListener('click', function () { entrar(c); });
       lista.appendChild(b);
     });
     $('acesso-cliente').textContent = '';
+    document.title = 'CIC';
     mostrarAcesso('v-seletor');
   }
 
@@ -122,39 +185,62 @@
     });
     return p;
   }
+  // Tira o token e o ?c= da URL
   function limparHash() {
-    history.replaceState(null, '', window.location.pathname + window.location.search);
+    history.replaceState(null, '', window.location.pathname);
+  }
+
+  // De qual cliente veio o link: ?c=<slug> ou, sem ele, o emissor (iss) do token
+  function clienteDoLink(link) {
+    var c = (window.location.search.match(/[?&]c=([a-z0-9-]+)/) || [])[1];
+    if (c && clientes.some(function (x) { return x.slug === c; })) return c;
+    if (!link.access_token) return null;
+    try {
+      var p = link.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      var iss = JSON.parse(atob(p + '==='.slice((p.length + 3) % 4))).iss || '';
+      var achou = clientes.filter(function (x) { return iss.indexOf(x.supabaseUrl) === 0; })[0];
+      return achou ? achou.slug : null;
+    } catch (e) { return null; }
   }
 
   // ---------- sessão ----------
   function iniciarSessao(link) {
-    $('trocar-cliente').hidden = clientes.length < 2;
-
     if (link.error_code || link.error) {
       limparHash();
-      mostrarAcesso('v-login');
-      msg('login-msg', link.error_code === 'otp_expired'
+      mostrarLogin(link.error_code === 'otp_expired'
         ? 'Esse link expirou ou já foi usado. Peça um novo em "Esqueci minha senha".'
         : 'Link inválido. Peça um novo em "Esqueci minha senha".');
       return;
     }
 
     var veioDeLink = link.type === 'invite' || link.type === 'recovery' || link.type === 'signup';
+    var doLink = veioDeLink && clientes.filter(function (c) { return c.slug === slugDoLink; })[0];
 
-    sb.auth.getSession().then(function (r) {
-      var sessao = r.data && r.data.session;
-      if (veioDeLink && sessao) {
+    if (doLink) {
+      // Convite ou recuperação: define a senha no cliente do link
+      escolherCliente(doLink);
+      sb.auth.getSession().then(function (r) {
         limparHash();
+        if (!(r.data && r.data.session)) {
+          mostrarLogin('Link inválido. Peça um novo em "Esqueci minha senha".');
+          return;
+        }
+        var varios = clientes.length > 1
+          ? ' Se você usa o CIC de mais de um cliente, defina a MESMA senha em todos.'
+          : '';
         $('senha-titulo').textContent = link.type === 'recovery' ? 'Crie uma nova senha' : 'Bem-vindo ao CIC';
-        $('senha-texto').textContent = link.type === 'recovery'
+        $('senha-texto').textContent = (link.type === 'recovery'
           ? 'Mínimo de 8 caracteres.'
-          : 'Defina sua senha de acesso. Mínimo de 8 caracteres.';
+          : 'Defina sua senha de acesso. Mínimo de 8 caracteres.') + varios;
         mostrarAcesso('v-senha');
-        return;
-      }
-      if (veioDeLink) limparHash();
-      if (sessao) carregarCic(sessao);
-      else mostrarAcesso('v-login');
+      });
+      return;
+    }
+
+    if (veioDeLink) limparHash();
+    avaliarSessoes().then(function (lista) {
+      validos = lista;
+      decidir(true);
     });
   }
 
@@ -175,8 +261,7 @@
         montarCic();
       })
       .catch(function (e) {
-        mostrarAcesso('v-login');
-        msg('login-msg', traduzErro(e));
+        mostrarLogin(traduzErro(e));
       });
   }
 
@@ -1345,13 +1430,16 @@
     document.body.removeChild(t);
   }
 
+  // Sair encerra a sessão em todos os clientes
   function sair() {
     perfil = null;
     menus = [];
-    sb.auth.signOut().finally(function () {
+    validos = [];
+    Promise.all(clientes.map(function (c) {
+      return clientDe(c).auth.signOut().then(null, function () {});
+    })).then(function () {
       history.replaceState(null, '', window.location.pathname);
-      mostrarAcesso('v-login');
-      msg('login-msg', '');
+      mostrarLogin();
     });
   }
 
@@ -1368,11 +1456,26 @@
     if (!email || !senha) { msg('login-msg', 'Preencha e-mail e senha.'); return; }
     msg('login-msg', '');
     ocupado('login-btn', true, 'Entrando...');
-    sb.auth.signInWithPassword({ email: email, password: senha }).then(function (r) {
+    // Mesmo e-mail e senha em todos os clientes, em paralelo
+    var erros = [];
+    Promise.all(clientes.map(function (c) {
+      return clientDe(c).auth.signInWithPassword({ email: email, password: senha }).then(function (r) {
+        if (r.error) { erros.push(r.error); return null; }
+        return validar(c);
+      }, function (e) { erros.push(e); return null; });
+    })).then(function (lista) {
       ocupado('login-btn', false);
-      if (r.error) { msg('login-msg', traduzErro(r.error)); return; }
+      validos = lista.filter(Boolean);
+      if (!validos.length) {
+        // Rede fora ou excesso de tentativas em todos: mostra o motivo real
+        var tecnico = erros.length === clientes.length && erros.every(function (e) {
+          return /rate limit|too many|failed to fetch|network/i.test((e && e.message) || '');
+        });
+        msg('login-msg', tecnico ? traduzErro(erros[0]) : 'E-mail ou senha inválidos.');
+        return;
+      }
       $('login-senha').value = '';
-      carregarCic(r.data.session);
+      decidir(false);
     });
   });
 
@@ -1382,17 +1485,28 @@
     mostrarAcesso('v-esqueci');
   });
   $('voltar-login').addEventListener('click', function () { mostrarAcesso('v-login'); });
-  $('trocar-cliente').addEventListener('click', function () { apagar('cic-cliente'); mostrarSeletor(); });
+  // Trocar operação: volta ao seletor sem pedir senha
+  $('lat-trocar').addEventListener('click', function () { fecharGaveta(); mostrarSeletor(); });
+  $('sair-seletor').addEventListener('click', sair);
 
   $('v-esqueci').addEventListener('submit', function (ev) {
     ev.preventDefault();
     var email = $('esqueci-email').value.trim().toLowerCase();
     if (!email) { msg('esqueci-msg', 'Informe o e-mail.'); return; }
     ocupado('esqueci-btn', true, 'Enviando...');
-    var volta = window.location.origin + window.location.pathname + '?c=' + encodeURIComponent(cliente.slug);
-    sb.auth.resetPasswordForEmail(email, { redirectTo: volta }).then(function (r) {
+    // Pede a recuperação em todos os clientes; cada link volta com o ?c= do seu cliente
+    Promise.all(clientes.map(function (c) {
+      var volta = window.location.origin + window.location.pathname + '?c=' + encodeURIComponent(c.slug);
+      return clientDe(c).auth.resetPasswordForEmail(email, { redirectTo: volta }).then(function (r) {
+        return r.error || null;
+      }, function (e) { return e; });
+    })).then(function (rr) {
       ocupado('esqueci-btn', false);
-      if (r.error && /rate limit|too many/i.test(r.error.message)) { msg('esqueci-msg', traduzErro(r.error)); return; }
+      var erros = rr.filter(Boolean);
+      if (erros.length === clientes.length && /rate limit|too many/i.test(erros[0].message || '')) {
+        msg('esqueci-msg', traduzErro(erros[0]));
+        return;
+      }
       // Mesma resposta com ou sem conta, pra não revelar quem tem acesso
       msg('esqueci-msg', 'Se o e-mail tiver acesso, o link chega em alguns minutos. Confira o spam.', true);
     });
@@ -1409,7 +1523,13 @@
       if (r.error) { msg('senha-msg', traduzErro(r.error)); return; }
       $('senha-1').value = '';
       $('senha-2').value = '';
-      sb.auth.getSession().then(function (s) { carregarCic(s.data.session); });
+      // Entra no cliente do link; os outros clientes com sessão ficam para o "Trocar operação"
+      var atual = cliente;
+      avaliarSessoes().then(function (lista) {
+        validos = lista;
+        if (validos.some(function (c) { return c.slug === atual.slug; })) entrar(atual);
+        else decidir(false);
+      });
     });
   });
 
@@ -1446,12 +1566,8 @@
     document.body.textContent = 'Nenhuma operação configurada.';
     return;
   }
-  // ?c=<slug> na URL (links de recuperação) tem prioridade sobre a última escolha
-  var salvo = (window.location.search.match(/[?&]c=([a-z0-9-]+)/) || [])[1] || ler('cic-cliente');
-  var inicial = clientes.length === 1
-    ? clientes[0]
-    : clientes.filter(function (c) { return c.slug === salvo; })[0];
-  if (!inicial) { mostrarSeletor(); return; }
-  escolherCliente(inicial);
+  $('esqueci-aviso').hidden = clientes.length < 2;
+  // Cliente do link (?c= ou emissor do token) antes de criar os clients
+  slugDoLink = clienteDoLink(link);
   iniciarSessao(link);
 })();

@@ -29,6 +29,9 @@
       <div id="v-seletor" class="acesso-view" hidden>
         <h1>Escolha a operação</h1>
         <div id="lista-clientes" class="lista-clientes"></div>
+        <div class="acesso-links">
+          <button type="button" class="link" id="sair-seletor">Sair</button>
+        </div>
       </div>
 
       <!-- Login -->
@@ -46,7 +49,6 @@
         <button type="submit" class="btn-principal" id="login-btn">Entrar</button>
         <div class="acesso-links">
           <button type="button" class="link" id="ir-esqueci">Esqueci minha senha</button>
-          <button type="button" class="link" id="trocar-cliente" hidden>Trocar operação</button>
         </div>
       </form>
 
@@ -54,6 +56,7 @@
       <form id="v-esqueci" class="acesso-view" hidden novalidate>
         <h1>Recuperar acesso</h1>
         <p class="texto">Informe seu e-mail. Se ele tiver acesso ao CIC, você recebe um link para criar uma nova senha.</p>
+        <p class="texto" id="esqueci-aviso" hidden>Se você usa o CIC de mais de um cliente, vai receber um e-mail de cada. Defina a MESMA senha em todos.</p>
         <label class="campo">
           <span>E-mail</span>
           <input id="esqueci-email" type="email" autocomplete="username" required>
@@ -101,6 +104,7 @@
           <div class="assinatura assinatura-clara">WEREV<sup>®</sup></div>
         </div>
         <div class="lateral-cliente" id="lateral-cliente"></div>
+        <button type="button" class="lat-trocar" id="lat-trocar" hidden>Trocar operação</button>
       </div>
       <nav class="menu" id="menu" aria-label="Menu principal"></nav>
       <div class="lateral-base">

@@ -151,6 +151,9 @@ input { font: inherit; }
 }
 .lateral-topo { padding: 28px 24px 22px; border-bottom: 1px solid var(--navy-3); }
 .lateral-cliente { margin-top: 10px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--taupe); }
+.lat-trocar { margin-top: 6px; background: none; border: 0; padding: 0; color: var(--grey); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.lat-trocar:hover { color: var(--taupe); }
+.lateral.recolhida .lat-trocar { display: none; }
 .menu { flex: 1; overflow-y: auto; padding: 12px 0; }
 .menu a {
   display: flex;
@@ -411,6 +414,7 @@ input { font: inherit; }
   .lateral.recolhida { width: 248px; }
   .lateral.recolhida .assinatura, .lateral.recolhida .lateral-cliente, .lateral.recolhida .menu-txt, .lateral.recolhida .usuario, .lateral.recolhida .build { display: revert; }
   .lateral.recolhida .menu a { justify-content: flex-start; padding: 10px 24px; }
+  .lateral.recolhida .lat-trocar { display: revert; }
   .duas { grid-template-columns: 1fr; }
   .bh { grid-template-columns: 1fr 70px; }
   .bh-rotulo { grid-column: 1 / -1; }
