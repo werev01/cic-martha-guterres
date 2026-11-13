@@ -1,0 +1,223 @@
+{
+  "id": "xijY2Y238pY668Ld",
+  "name": "[MARTHA] Unnichat · Painel do dia",
+  "description": "Coleta diária (06h23) do painel do Unnichat por dia (GET /analytics/dashboard) para public.unnichat_painel_dia. Contrato: docs/contrato-dados.md.",
+  "active": true,
+  "versionId": "606926dd-ca9f-4e7e-9fa2-3ad319ea4c54",
+  "nodes": [
+    {
+      "id": "ad958f93-4864-410c-b3a8-940c44da541b",
+      "name": "Todo dia 06h23",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 6,
+              "triggerAtMinute": 23
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "50171d95-32dc-4219-9f9e-7832dabe31e5",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "conexao",
+              "value": "Martha Guterres 0209",
+              "type": "string"
+            },
+            {
+              "id": "c2",
+              "name": "base_url",
+              "value": "https://unnichat.com.br/api",
+              "type": "string"
+            },
+            {
+              "id": "c3",
+              "name": "data_inicial",
+              "value": "2026-11-04",
+              "type": "string"
+            },
+            {
+              "id": "c4",
+              "name": "janela_dias",
+              "value": 60,
+              "type": "number"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "410e50fc-70e6-4cd4-b6e8-e51d075751cb",
+      "name": "Painel por dia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "url": "={{ $json.base_url }}/analytics/dashboard",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "from",
+              "value": "={{ [$now.setZone('America/Sao_Paulo').minus({ days: $json.janela_dias }).toISODate(), $json.data_inicial].sort().pop() }}"
+            },
+            {
+              "name": "to",
+              "value": "={{ $now.setZone('America/Sao_Paulo').minus({ days: 1 }).toISODate() }}"
+            },
+            {
+              "name": "granularity",
+              "value": "day"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "7ASEipSbdJLaAcN4",
+          "name": "[MARTHA] Unnichat MG0209"
+        }
+      }
+    },
+    {
+      "id": "fd87dba0-0396-4670-8dea-e7696bb479a0",
+      "name": "Mapear dias",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// GET /analytics/dashboard?granularity=day -> public.unnichat_painel_dia (upsert por conexao, dia).\nconst r = $input.first().json;\nconst b = r?.data ?? r?.summary ?? r;\nconst serie = b?.series ?? b?.summary?.series ?? [];\nconst conexao = $('Config').first().json.conexao;\nconst int = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v))) ? null : Math.round(Number(v));\nconst linhas = serie.filter(d => d?.date).map(d => ({\n  conexao, dia: String(d.date).slice(0, 10),\n  mensagens_recebidas: int(d.messagesReceived), conversas: int(d.conversations), contatos_criados: int(d.contactsCreated),\n  templates_utility: int(d.templatesUtility), templates_marketing: int(d.templatesMarketing),\n  raw_payload: d, coletado_em: new Date().toISOString()\n}));\nif (!linhas.length) throw new Error('Painel do Unnichat sem série diária: ' + JSON.stringify(r).slice(0, 300));\nreturn [{ json: { body: linhas } }];"
+      }
+    },
+    {
+      "id": "e8ba993f-b59e-4972-84d0-5cad24386a5a",
+      "name": "Gravar no Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        896,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://zrvrfxhzwzumvetgjure.supabase.co/rest/v1/unnichat_painel_dia?on_conflict=conexao,dia",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "supabaseApi": {
+          "id": "mp39iTV3ZCsXE6mp",
+          "name": "[MARTHA] Supabase service role"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Todo dia 06h23": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Painel por dia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Painel por dia": {
+      "main": [
+        [
+          {
+            "node": "Mapear dias",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mapear dias": {
+      "main": [
+        [
+          {
+            "node": "Gravar no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "0u78gG8Z50RvDYtd",
+    "timezone": "America/Sao_Paulo"
+  },
+  "tags": [
+    "martha",
+    "fonte:unnichat",
+    "tipo:agendado"
+  ],
+  "meta": {}
+}
