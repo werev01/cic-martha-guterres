@@ -3,7 +3,7 @@
 Vale pra todo workflow da operação. Se um caso não estiver coberto aqui, pergunte
 antes de inventar e registre a decisão neste arquivo.
 
-Última atualização: 10/11/2026
+Última atualização: 13/11/2026
 
 ## Onde fica
 
@@ -48,10 +48,15 @@ Nunca compartilhar credencial com outra operação.
 | Credencial | Tipo no n8n | Uso |
 |---|---|---|
 | `[MARTHA] Supabase service role` | Supabase API (chave `service_role` legada, JWT) | gravar nas tabelas brutas |
-| `[MARTHA] Unnichat` | Header Auth (token da conta da Martha) | chamadas à API do Unnichat |
+| `[MARTHA] Unnichat MG0209` | Header Auth (token da conexão 0209) | chamadas à API do Unnichat (coletas e eventos) |
+| `[MARTHA] Unnichat MG8538` | Header Auth (token da conexão 8538) | sem uso por enquanto |
 | `[MARTHA] Hubla` | Header Auth | validar o token do webhook / chamadas à API |
 | `[MARTHA] E-mail alertas` | Gmail OAuth2, autorizado com `mitsuo@werev.com.br` | workflow de erro (envia para o grupo `ferramentas@werev.com.br`) |
 | `[MARTHA] Webhook token` | Header Auth (`x-cic-token`) | validar webhooks chamados pelo Unnichat |
+
+Credencial do Unnichat é uma por conexão, no padrão `[CLIENTE] Unnichat <iniciais><final da
+conexão>` (ex.: `[MARTHA] Unnichat MG0209`). Trocar o token não muda o id da credencial,
+então os workflows não precisam ser editados.
 
 Regra: chave e token só dentro de credencial. Nunca colar chave em header, URL ou
 campo de nó (isso vaza no export do JSON).
@@ -144,6 +149,21 @@ Body: objeto ou array de objetos com os campos do contrato
   desativar.
 - Backup diário do banco do n8n na pasta `n8n-backups-werev` do Google Drive.
 
+### Incidente de 12/11/2026: coletas paradas sem alerta
+
+- O que houve: às 12:15 de 12/11 o token da credencial do Unnichat (conexão 0209) passou a
+  dar 401. Coleta de broadcasts, Coleta de automações e Conversas do dia falharam por quase
+  21 h e ninguém foi avisado.
+- Por que não houve alerta: na migração para a VPS, os workflows perderam a configuração
+  "Error workflow". O `[MARTHA] Erros` estava ativo, mas nenhum workflow apontava para ele.
+- Correção (13/11): token trocado, dados recuperados, credencial renomeada para
+  `[MARTHA] Unnichat MG0209` (mesmo id) e Error workflow = `[MARTHA] Erros` configurado
+  nos 10 workflows da pasta. Ajustar só a configuração não cria versão nova nem tira o
+  workflow do ar.
+- Teste (13/11): workflow temporário com gatilho agendado e nó que falha de propósito.
+  O `[MARTHA] Erros` rodou em modo error e o Gmail enviou o alerta. Gatilho manual não
+  serve para esse teste, porque o error workflow só dispara em execução de produção.
+
 ## Checklist de workflow novo
 
 - [ ] Nome no padrão e dentro da pasta da operação na VPS (`cic-martha-guterres`)
@@ -151,6 +171,8 @@ Body: objeto ou array de objetos com os campos do contrato
 - [ ] Credenciais `[MARTHA]`, nenhuma chave solta em nó
 - [ ] Path de webhook com `martha-guterres`
 - [ ] Upsert com `on_conflict` igual à chave do contrato
-- [ ] Error workflow apontando pra `[MARTHA] Erros`
+- [ ] **Obrigatório:** Settings > Error workflow = `[MARTHA] Erros`. Ao importar ou
+  migrar workflow para outra instância, essa configuração se perde: conferir sempre
+  depois.
 - [ ] Teste com payload real e conferência da linha no Supabase
 - [ ] JSON exportado pro repo
