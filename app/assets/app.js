@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-12a';
-  var MUDANCAS = 'Login espelhado: um login para todos os clientes, seletor só quando a pessoa tem mais de um; cliente Vanessa Oliveira';
+  var BUILD = '2026-11-13a';
+  var MUDANCAS = 'Mensageria: custo real do Unnichat em broadcasts e automações, preços de 01/11, aviso de conversas fora do CRM e sem a tabela de custo por vendedor';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -1271,7 +1271,7 @@
         var d = r.data || {}, re = d.resumo || {};
         var reais = function (v) { return v === null || v === undefined ? '–' : rs(v); };
         var cards = '<div class="kpis">' +
-          kpi('Custo estimado', reais(re.custo_total), 'templates + serviço' + (Number(re.franquia_desconto) ? ' − franquia ' + rs(re.franquia_desconto) : '') + ' · rate card', true) +
+          kpi('Custo', reais(re.custo_total), 'broadcasts e automações: custo real (Unnichat) · vendedores estimado' + (Number(re.franquia_desconto) ? ' − franquia ' + rs(re.franquia_desconto) : ''), true) +
           kpi('Custo por venda', reais(re.custo_por_venda), plural(re.vendas_comercial || 0, 'venda', 'vendas') + ' do comercial') +
           kpi('Templates entregues', num(re.templates_entregues), num(re.templates_enviados) + ' enviados · ' + num(re.falhas) + ' falhas') +
           kpi('Entrega', pct(re.taxa_entrega), 'entregues ÷ enviados') +
@@ -1330,29 +1330,32 @@
         var fams = (d.familias || []).map(function (f) {
           return [esc(f.familia), num(f.leads_e0), num(f.leads_e2) + de(f.leads_e2, f.leads_e0), num(f.vendas) + de(f.vendas, f.leads_e2), num(f.bloqueios)];
         });
-        var vds = (d.vendedores || []).map(function (v) {
-          return [pessoa(v.vendedor, v.ativo === false), num(v.servico), num(v.contatos), num(v.tpl_utl), num(v.tpl_mkt), '<strong>' + reais(v.custo) + '</strong>', num(v.vendas), reais(v.custo_por_venda)];
-        });
+        // live chat de quem está fora do CRM comercial não entra no custo: avisa o tamanho pelo painel do Unnichat
+        var fc = d.fora_crm || {};
+        var foraCrm = Number(fc.recebidas_total) > 0
+          ? '<p class="aviso-nota">O custo de live chat (barra Vendedores) considera só as conversas com contatos do CRM comercial. No período, <strong>' +
+            pct(fc.pct_fora) + '</strong> das mensagens recebidas (' + num(Math.max(fc.recebidas_total - fc.recebidas_crm, 0)) + ' de ' + num(fc.recebidas_total) +
+            ') vieram de contatos fora do CRM, e o live chat dessas conversas não entra no custo.' +
+            (fc.ultimo_dia ? ' Painel do Unnichat até ' + esc(String(fc.ultimo_dia).split('-').reverse().slice(0, 2).join('/')) + '.' : '') + '</p>'
+          : '';
         var fonte = (d.preco || [])[0];
         var precoTxt = (d.preco || []).map(function (p) {
           return esc(p.categoria.toLowerCase()) + ' R$ ' + Number(p.preco).toLocaleString('pt-BR', { minimumFractionDigits: 4 });
         }).join(' · ');
         corpo.innerHTML = cards +
-          '<div class="duas">' + bloco('Custo por origem', 'Templates e serviço, antes da franquia.', origem) + bloco('Custo por categoria', 'Entregues x preço da categoria (SERVICE = serviço, antes da franquia).', cat) + '</div>' +
-          sessao +
+          '<div class="duas">' + bloco('Custo por origem', 'Templates e serviço, antes da franquia.', origem) + bloco('Custo por categoria', 'Broadcast: custo real (Unnichat) menos o serviço do fluxo. Automação e vendedor: enviados x preço da categoria. SERVICE = serviço enviado, antes da franquia.', cat) + '</div>' +
+          sessao + foraCrm +
           bloco('Custo por dia', 'Barras: custo em R$ por origem, antes da franquia. Linha: templates entregues no dia. Vendedores do dia só entram após a coleta das 23:40.', porDia) +
           bloco('Broadcasts por campanha', 'Só os do comercial. Clique na campanha para ver os lotes. Leads, em contato, vendas e bloqueios pela copy da campanha no CRM (venda e bloqueio pela última copy antes do fato).', linhasCamp
             ? tabCamp : '<p class="painel-msg vazio">Nenhum broadcast no período.</p>') +
-          bloco('Automações', 'Volume do período pela diferença das fotos horárias. Cliques únicos ÷ entregues dos passos com botão. Custo = templates + serviço.', aus.length
+          bloco('Automações', 'Volume do período pela diferença das fotos horárias. Cliques únicos ÷ entregues dos passos com botão. Custo real (Unnichat): diferença do custo acumulado no período.', aus.length
             ? tabela(['Automação', 'Templates enviados', 'Entregues', 'Lidos', 'Cliques', 'Serviço', 'Categoria', 'Custo'], aus, [1, 2, 3, 4, 5, 7])
             : '<p class="painel-msg vazio">Nenhum envio de automação no período.</p>') +
           bloco('Automações por família de copy', 'Copy sem o número da versão. Leads e em contato: pessoas únicas no CRM; venda e bloqueio pela última copy antes do fato.', fams.length
             ? tabela(['Família', 'Leads (E0)', 'Em contato (E2)', 'Vendas', 'Bloqueios'], fams, [1, 2, 3, 4])
             : '<p class="painel-msg vazio">Nenhuma copy de automação no período.</p>') +
-          bloco('Vendedores', 'Serviço: mensagens enviadas e agendadas pelo vendedor. Custo = serviço + templates do vendedor, antes da franquia.',
-            tabela(['Vendedor', 'Serviço', 'Contatos', 'Templates utl', 'Templates mkt', 'Custo', 'Vendas', 'Custo por venda'], vds, [1, 2, 3, 4, 5, 6, 7])) +
-          '<p class="rodape-fonte">Custo estimado pelo rate card da Meta (' + (fonte ? esc(fonte.fonte) : 'tabela whatsapp_preco') + ': ' + precoTxt +
-          '; serviço com 1.000 grátis por número por mês). A fatura do Unnichat é a referência final.</p>';
+          '<p class="rodape-fonte">Broadcasts e automações: custo real (Unnichat), lido da API. Live chat (barra Vendedores), e broadcast ou automação sem custo na API: estimado pela tabela (' + (fonte ? esc(fonte.fonte) : 'tabela whatsapp_preco') + ': ' + precoTxt +
+          '; serviço com 1.000 grátis por número por mês). O Unnichat cobra por mensagem enviada.</p>';
         Array.prototype.forEach.call(corpo.querySelectorAll('tr.camp'), function (tr) {
           var abre = function () {
             var on = tr.getAttribute('aria-expanded') !== 'true';
