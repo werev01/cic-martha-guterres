@@ -416,20 +416,43 @@ de cobrança da Meta.
 Se trocarem o template de um node, o histórico desse node passa a ser lido com o
 template novo (raro; tratar com vigência se acontecer).
 
-#### Regra de custo (decidida em 05/11/2026)
-- Preço por mensagem **entregue**, por categoria, em `whatsapp_preco` (config com
-  vigência; mudou o preço = nova linha). Valores de 01/10/2026: marketing R$ 0,3217;
-  utilidade, autenticação e serviço R$ 0,035 (utilidade é cobrada mesmo com a janela de
-  24h aberta).
+#### Regra de custo (decidida em 05/11/2026, revista em 13/11/2026)
+Conferência de 13/11/2026: a carteira do Unnichat debitou R$ 3.186,65 de 01 a 12/11
+(broadcast R$ 1.465,80, automações R$ 1.242,25, live chat R$ 478,60) e o CIC mostrava
+R$ 1.233,60 de custo comercial contra ~R$ 1.950 real. Causas: o Unnichat cobra por
+mensagem **enviada**, a R$ 0,05 (utility e serviço) e ~R$ 0,35 (marketing), e a
+mensagem do fluxo depois do clique entra como serviço no custo do broadcast.
+Prova: LT1 de 12/11 = 293 templates + 8 mensagens de fluxo = 301 x 0,05 = R$ 15,05,
+igual ao `cost` da API (LT5 R$ 15,00 e LT22 R$ 9,95 fecham do mesmo jeito).
+
+1. **Broadcast:** custo = `unnichat_broadcasts.custo_api` (`data.cost.amount` do
+   `/broadcasts/{id}/metrics`, em R$; sobe com os cliques, a recoleta de 48 h pega).
+   Sem custo: `tpl_enviados` x preço da categoria do template + `srv_enviados` x SERVICE.
+2. **Automação** (só a pasta `[COMERCIAL]` e subpastas): `data.cost.amount` vem no node
+   `_total` e é o custo ACUMULADO desde a criação. Custo do período = acumulado na
+   última foto do período menos o da última foto antes dele (sem foto antes = 0). Foto
+   sem custo (coletas antigas) usa o acumulado estimado: enviados de cada node x preço
+   da categoria (template) ou SERVICE (demais).
+3. **Vendedor:** (`msg_vendedor` + `msg_agendada`) x SERVICE + `tpl_vendedor_utl` x
+   UTILITY + `tpl_vendedor_mkt` x MARKETING (estimado; não há custo na API).
+4. **Preço** em `whatsapp_preco` (config com vigência; mudou o preço = nova linha).
+   Desde 01/11/2026 (carteira Unnichat, conferida em 13/11/2026): UTILITY, SERVICE e
+   AUTHENTICATION R$ 0,05; MARKETING R$ 0,35. Linhas de 01/10/2026 (rate card Meta:
+   R$ 0,035 e R$ 0,3217) ficam como histórico.
+5. **Marketing** (`[Disparo]`) fica fora do CIC.
+6. **Live chat fora do CRM:** o custo de vendedor só vê os contatos do universo da coleta
+   `Conversas do dia` (CRM comercial). O aviso `fora_crm` da `cic_mensageria` compara as
+   mensagens recebidas do painel do Unnichat (`unnichat_painel_dia`) com as recebidas de
+   contatos do CRM (`unnichat_conversas_dia.msg_lead`), só nos dias com as duas fontes.
+   É indicador, não custo: muita mensagem de fora do CRM é respondida por automação.
 - **Serviço** = mensagem que não é template (texto, botão, mídia) enviada pela empresa.
   Fontes, uma por tipo (sem somar duas vezes): bot = esta coleta; vendedores =
   `unnichat_conversas_dia` (`msg_vendedor`, `msg_agendada`); broadcast = `srv_*` de
   `unnichat_broadcasts`. As contagens de automação em `conversas_dia` só servem pra
   conferência.
 - **Franquia de serviço:** 1.000 grátis por número por mês. Não é rateada por automação:
-  todo serviço é custeado a R$ 0,035 e a franquia entra como desconto do mês no total
-  do número (teto R$ 35/mês).
-- Conferir contra a primeira fatura do Unnichat.
+  todo serviço enviado é custeado pelo preço SERVICE e a franquia entra como desconto do
+  mês no total do número (1.000 x SERVICE; R$ 50/mês desde 01/11/2026).
 
 ### `unnichat_blocklist` (webhook `/webhook/martha-guterres/unnichat/blocklist`)
 Contato que pediu pra não receber mais mensagens. Chamado por um passo de requisição
@@ -513,6 +536,24 @@ O primeiro passo dos broadcasts comerciais costuma não ser mensagem (`firstStep
 node`) e o template sai num node seguinte; por isso a classificação é por tipo de node,
 não por posição. Broadcast com mais de um template: `template_id` guarda o primeiro e o
 custo exato por template sai do `raw_payload`.
+
+### `unnichat_painel_dia` (coleta diária, 06h23)
+Workflow `[MARTHA] Unnichat · Painel do dia` (VPS, `xijY2Y238pY668Ld`).
+`GET /analytics/dashboard?from=&to=&granularity=day` com a credencial
+`[MARTHA] Unnichat MG0209`; `from` = o maior entre hoje − `janela_dias` (60) e
+`data_inicial` (04/11/2026), `to` = ontem. Upsert de uma linha por dia, chave
+`(conexao, dia)`, então recalcula a janela inteira a cada execução (o painel do Unnichat
+recalcula com atraso).
+
+| Coluna | Origem (`series[]`) |
+|---|---|
+| `conexao` | Config do workflow (`Martha Guterres 0209`) |
+| `dia` | `date` |
+| `mensagens_recebidas` | `messagesReceived` |
+| `conversas` | `conversations` (janela de 24 h aberta no cálculo do dia) |
+| `contatos_criados` | `contactsCreated` |
+| `templates_utility` / `templates_marketing` | `templatesUtility` / `templatesMarketing` (D-1) |
+| `raw_payload` | o item da série inteiro |
 
 ### `unnichat_conversas_dia` (coleta diária, 23h40)
 Workflow `[MARTHA] Unnichat · Conversas do dia`. Mensagens do dia por contato,

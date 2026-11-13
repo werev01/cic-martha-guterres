@@ -203,14 +203,25 @@ Links de venda na Minha página, cada um com o cupom e botão de copiar
 - Escopo comercial: broadcasts com nome `COMERCIAL...`, automações das pastas coletadas
   (CHECKOUT, BANCO DE EVENTOS e GERAL, todas dentro da pasta comercial) e vendedores do
   cadastro. Conexão 0209.
-- Custo é ESTIMATIVA pelo rate card (`whatsapp_preco`, preço vigente na data); a fatura
-  do Unnichat é a referência final. A Meta cobra na entrega.
-- Template: entregues x preço da categoria (broadcast pelo `template_id`, automação pelo
-  node, vendedor por `tpl_vendedor_utl`/`_mkt`).
-- Serviço (mensagem que não é template): R$ 0,035 por mensagem. Vendedor =
-  `msg_vendedor` + `msg_agendada`; broadcast = respostas `srv_entregues`; automação =
-  nodes sem template. Franquia de 1.000 por número por mês, desconto no total do mês
-  (não rateado), aplicada às primeiras 1.000 do mês, dia a dia.
+- Custo (revisto em 13/11/2026, conferido contra a carteira do Unnichat de 01 a 12/11):
+  broadcasts e automações usam o **custo real** que a API do Unnichat informa; vendedores
+  seguem **estimados** pela tabela `whatsapp_preco`. O Unnichat cobra por mensagem
+  ENVIADA (não por entregue). Regra completa e prova em `contrato-dados.md` (Regra de
+  custo).
+- Broadcast: `custo_api`; sem ele, `tpl_enviados` x preço da categoria + `srv_enviados` x
+  SERVICE. Automação: custo acumulado no fim do período menos o do início (só a pasta
+  `[COMERCIAL]`); sem custo na API, enviados x preço da categoria do node.
+- Vendedor: (`msg_vendedor` + `msg_agendada`) x SERVICE + `tpl_vendedor_utl` x UTILITY +
+  `tpl_vendedor_mkt` x MARKETING. Franquia de 1.000 por número por mês, desconto no total
+  do mês (não rateado), aplicada às primeiras 1.000 do mês, dia a dia.
+- Marketing (`[Disparo]`) continua fora do CIC.
+- Live chat (13/11/2026): o custo de vendedores (barra "Vendedores") considera só as
+  conversas com contatos do CRM comercial (universo da coleta `Conversas do dia`); o
+  comercial deve atuar sempre com leads do CRM. Não há tabela de custo por vendedor (não é
+  analisado). Aviso na tela, pelo período filtrado: % das mensagens recebidas (painel do
+  Unnichat, `unnichat_painel_dia`) que vieram de contatos fora do CRM. De 01 a 12/11 foi
+  63,1% (lançamento com muito lead sem cadastro no CRM); a carteira cobrou R$ 478,60 de
+  live chat contra R$ 359,80 no CIC. Acompanhar se cai daqui pra frente.
 - Automações: volume do período = última foto no período - última foto antes dele; sem
   foto anterior, conta o acumulado da primeira foto.
 - Cliques (06/11): só automações, `clicks.uniqueClicks` da foto horária, pela diferença
@@ -288,9 +299,8 @@ Links de venda na Minha página, cada um com o cupom e botão de copiar
 - Vendedor inativo com atividade no período (evento de CRM, conversa ou venda) aparece no
   Desempenho, na Taxa de passagem (filtro), em Motivos de perda e no Ciclo, com a etiqueta
   "inativo". Continua sem link de venda e sem login.
-- Mensageria: vendedor inativo que teve conversa no período entra no custo de vendedor, no
-  custo por dia e na tabela de vendedores, com a etiqueta "inativo" (o custo existe do
-  mesmo jeito).
+- Mensageria: vendedor inativo que teve conversa no período entra no custo de vendedor e
+  no custo por dia (o custo existe do mesmo jeito).
 
 ## Desempenho individual e Minha página (decidido em 06/11/2026)
 
@@ -347,7 +357,7 @@ produtos contam igual pra meta e comissão (Ultra Black e Meal Prep, decidido em
 
 - [ ] Regra definitiva do valor TMB (hoje 50%). Cobrar o Nirla.
 - [ ] Criar os usuários de Matta, Godoy e dos 4 vendedores (perfis já cadastrados).
-- [ ] Mensageria: conferir o custo estimado (`cic_mensageria`) contra a primeira fatura do Unnichat.
+- [x] Mensageria: custo conferido contra a carteira do Unnichat em 13/11/2026 (custo real da API desde a 0029).
 
 ### Pendente de teste e validação (n8n e Unnichat, criados às pressas em 04/11)
 - [ ] Token errado nos webhooks: confirmar o status real (doc assume 403) com curl.

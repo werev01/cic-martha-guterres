@@ -46,6 +46,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261109_0026_mensageria_leads_e0.sql` | `cic_mensageria`: resumo ganha `leads_e0`, `taxa_leads_e0` e `custo_por_lead_e0` |
 | `20261109_0027_vendas_crm_funil.sql` | interna `cic_vendas_crm` (venda comercial x negócio e etapa na compra); `cic_taxa_passagem` e `cic_ciclo_venda` contam só venda comercial com crédito pelo utm; `cic_meta_funil` usa `cic_config.funil_padrao` no lugar de "Sem funil" |
 | `20261109_0028_origem_passagem_motivos.sql` | interna `cic_negocio_origem`; `cic_taxa_passagem_origem` (funil geral + por origem, com `pessoas_e2`, `vendas_total`, `conversao`); `cic_motivos_perda` ganha `origem` |
+| `20261113_0029_mensageria_custo_real.sql` | custo real do Unnichat: coluna gerada `unnichat_broadcasts.custo_api`; preços de 01/11/2026 em `whatsapp_preco`; interna `cic_automacao_custo_dia`; `cic_servico_dia` conta enviadas; `cic_mensageria` com custo de broadcast e automação pela API, sem a lista `vendedores` e com o aviso `fora_crm` (regra em contrato-dados.md); bruta `unnichat_painel_dia` |
 
 ## Camada tratada (RPCs do app)
 
@@ -76,7 +77,7 @@ Regras das telas de gestão em `contrato-dados.md` (unnichat_eventos) e `escopo.
 Só comercial em todas as RPCs, inclusive pro admin; orgânico fica no banco pra lista
 e análise (05/11/2026).
 
-Internas, sem acesso do app: `cic_kpis_comercial`, `cic_preco_whatsapp`, `cic_servico_dia`, `cic_negocios`, `cic_fone_chave`, `cic_fone`, `cic_vendas_validas`, `cic_reembolsos_validos`,
+Internas, sem acesso do app: `cic_kpis_comercial`, `cic_preco_whatsapp`, `cic_servico_dia`, `cic_automacao_custo_dia`, `cic_negocios`, `cic_fone_chave`, `cic_fone`, `cic_vendas_validas`, `cic_reembolsos_validos`,
 `cic_contatos_em_contato` (todas por período `p_inicio, p_fim`).
 
 Trava (`trg_hubla_vendas_trava_paga`): linha `paid` só aceita virar `refunded`,
@@ -93,6 +94,7 @@ refunded/chargeback não muda mais. Overdue/unpaid virando paid continua passand
 | `unnichat_eventos` | – | – | `(negocio_id, event_ts)` |
 | `hubla_vendas` | `pessoa_chave` | `cic_fone_chave(payer_telefone)` | `(pessoa_chave, sale_date)` |
 | `unnichat_blocklist` | `pessoa_chave` | `cic_fone_chave(telefone)` | `(pessoa_chave)` |
+| `unnichat_broadcasts` | `custo_api` (0029) | `(raw_payload->'data'->'cost'->>'amount')::numeric` | – |
 
 - Regra: função nova compara pessoa por `pessoa_chave`, nunca `cic_fone_chave(...)` ou
   `right(..., 8)` linha a linha; família de copy por `copy_familia`. Subconsulta
@@ -118,7 +120,8 @@ refunded/chargeback não muda mais. Overdue/unpaid virando paid continua passand
 | `crm_etapas` | `ordem` | 0 a 4, com o nome exato do Unnichat |
 | `motivos_perda` | `nome_unnichat` | 11 motivos, grupo = código entre colchetes |
 | `metas` | `mes, nivel` | nov/2026: bronze 100k, prata 150k, ouro 200k |
-| `whatsapp_preco` | `categoria, vigente_desde` | preço Meta por mensagem entregue desde 01/10/2026: MARKETING 0,3217; UTILITY, AUTHENTICATION e SERVICE 0,035 (SERVICE com 1.000 grátis por número/mês). Sem acesso do app; leitura via view |
+| `unnichat_painel_dia` | `conexao, dia` | painel do Unnichat por dia (mensagens recebidas, conversas, contatos criados, templates). Bruta, sem acesso do app; coleta `[MARTHA] Unnichat · Painel do dia` (0029). |
+| `whatsapp_preco` | `categoria, vigente_desde` | preço por mensagem enviada, por vigência. Desde 01/11/2026 (carteira Unnichat, conferida em 13/11/2026): UTILITY, SERVICE e AUTHENTICATION 0,05; MARKETING 0,35; SERVICE com 1.000 grátis por número/mês. Linhas de 01/10/2026 (rate card Meta: 0,035 e 0,3217) ficam como histórico. Sem acesso do app; leitura via view |
 | `comissao_faixas` | `vigencia_inicio, nivel` | nov/2026: nível 1 (> 0) 1%, nível 2 (> 45 mil) 1,5%, nível 3 (> 70 mil) 2%; regra `sobre_total` em `cic_config` |
 | `dim_calendario` | `data` | nov e dez/2026; dia útil = seg a sex sem feriado nacional (19 em novembro) |
 
