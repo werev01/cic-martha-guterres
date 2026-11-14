@@ -22,7 +22,7 @@ coisa, leia este documento. Mudou decisão? Atualize aqui no mesmo commit.
 | Repositório | `werev01/cic-martha-guterres` |
 | Publicação | GitHub Pages do repo (GitHub Actions), no endereço https://cic-dr.werev.com.br; o antigo werev01.github.io/cic-martha-guterres redireciona |
 | Supabase | project ref `zrvrfxhzwzumvetgjure` (organização WeRev, sa-east-1) |
-| n8n (cloud, compartilhado) | pasta `cic-martha-guterres`, workflows com prefixo `[MARTHA]` |
+| n8n (VPS TurboCloud, n8n.werev.com.br) | pasta `cic-martha-guterres` no projeto pessoal, workflows com prefixo `[MARTHA]` (padrões em `padroes-n8n.md`) |
 | Unnichat | conta própria da Martha |
 | Slug do cliente | `martha-guterres` (sempre com sobrenome) |
 
