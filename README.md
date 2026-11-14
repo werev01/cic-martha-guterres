@@ -7,6 +7,6 @@ CIC (Central de Inteligência Comercial) da operação Martha Guterres.
 | `docs/` | fonte da verdade: escopo, padrões do n8n, contrato de dados, referência do G2 |
 | `supabase/migrations/` | migrations do banco, versionadas e na ordem em que foram aplicadas |
 | `n8n/workflows/` | JSON exportado dos workflows `[MARTHA]` (sem segredo) |
-| `app/` | dashboard publicado no GitHub Pages (só chave pública) |
+| `app/` | dashboard publicado no GitHub Pages em https://cic-dr.werev.com.br (só chave pública) |
 
 Comece por `docs/escopo.md`.

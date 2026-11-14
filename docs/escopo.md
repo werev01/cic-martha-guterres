@@ -20,13 +20,15 @@ coisa, leia este documento. Mudou decisão? Atualize aqui no mesmo commit.
 | Recurso | Identificador |
 |---|---|
 | Repositório | `werev01/cic-martha-guterres` |
-| Publicação | GitHub Pages do repo, sem domínio próprio por enquanto |
+| Publicação | GitHub Pages do repo (GitHub Actions), no endereço https://cic-dr.werev.com.br; o antigo werev01.github.io/cic-martha-guterres redireciona |
 | Supabase | project ref `zrvrfxhzwzumvetgjure` (organização WeRev, sa-east-1) |
 | n8n (cloud, compartilhado) | pasta `cic-martha-guterres`, workflows com prefixo `[MARTHA]` |
 | Unnichat | conta própria da Martha |
 | Slug do cliente | `martha-guterres` (sempre com sobrenome) |
 
-Auth do Supabase: cadastro aberto desligado; Site URL aponta pro GitHub Pages do repo.
+Auth do Supabase: cadastro aberto desligado; Site URL https://cic-dr.werev.com.br e
+Redirect URLs https://cic-dr.werev.com.br/** (os endereços antigos do github.io
+ficam na lista).
 
 ## Fontes de dados
 
@@ -110,6 +112,11 @@ Regras:
 - Metas são sobre faturamento LÍQUIDO (descontando reembolso), decidido em 04/11/2026.
 - Publicação: a pasta `app/` sai no GitHub Pages por GitHub Actions
   (`.github/workflows/pages.yml`). Visual segue `docs/marca.md`; sem emoji.
+  - Endereço próprio (14/11/2026): https://cic-dr.werev.com.br.
+    - DNS do werev.com.br no WHM da TurboCloud (servidor odin7080, Funções DNS > DNS Zone
+      Manager): CNAME cic-dr -> werev01.github.io e TXT _github-pages-challenge-werev01.
+    - Domínio werev.com.br verificado no GitHub da conta werev01.
+    - Custom domain e Enforce HTTPS em Settings > Pages deste repo.
 - Acesso: convite pelo Supabase (Authentication > Users > Invite user). O link cai na
   tela "Defina sua senha" do CIC.
 - Usuários: admins Matta, Nirla, Mitsuo e Godoy; vendedores Daniele Silva, Henrique
