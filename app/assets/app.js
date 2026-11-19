@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-13a';
-  var MUDANCAS = 'Mensageria: custo real do Unnichat em broadcasts e automações, preços de 01/11, aviso de conversas fora do CRM e sem a tabela de custo por vendedor';
+  var BUILD = '2026-11-19a';
+  var MUDANCAS = 'Nova operação no seletor: Dra. Poliane Cardoso (login espelhado)';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {

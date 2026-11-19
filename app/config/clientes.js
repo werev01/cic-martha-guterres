@@ -21,5 +21,11 @@ window.CIC_CLIENTES = [
     nome: 'Vanessa Oliveira',
     supabaseUrl: 'https://otwxprouwlihkihtrbeq.supabase.co',
     chavePublica: 'sb_publishable_IjpYWtCULX4o7OWvODoEBg_9XVw4Z1Q'
+  },
+  {
+    slug: 'poliane-cardoso',
+    nome: 'Dra. Poliane Cardoso',
+    supabaseUrl: 'https://qfgqfeyztnoxvsckuqwk.supabase.co',
+    chavePublica: 'sb_publishable_867rzqytmCNWO9WkvJNwSg_LXW5FROZ'
   }
 ];
