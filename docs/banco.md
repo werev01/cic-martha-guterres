@@ -47,6 +47,7 @@ Toda mudança de estrutura vira migration em `supabase/migrations/`.
 | `20261109_0027_vendas_crm_funil.sql` | interna `cic_vendas_crm` (venda comercial x negócio e etapa na compra); `cic_taxa_passagem` e `cic_ciclo_venda` contam só venda comercial com crédito pelo utm; `cic_meta_funil` usa `cic_config.funil_padrao` no lugar de "Sem funil" |
 | `20261109_0028_origem_passagem_motivos.sql` | interna `cic_negocio_origem`; `cic_taxa_passagem_origem` (funil geral + por origem, com `pessoas_e2`, `vendas_total`, `conversao`); `cic_motivos_perda` ganha `origem` |
 | `20261113_0029_mensageria_custo_real.sql` | custo real do Unnichat: coluna gerada `unnichat_broadcasts.custo_api`; preços de 01/11/2026 em `whatsapp_preco`; interna `cic_automacao_custo_dia`; `cic_servico_dia` conta enviadas; `cic_mensageria` com custo de broadcast e automação pela API, sem a lista `vendedores` e com o aviso `fora_crm` (regra em contrato-dados.md); bruta `unnichat_painel_dia` |
+| `20261124_0030_links_valor.sql` | `links_venda.valor` (preço cheio, sem cupom), rótulo só com a opção, ordem da lista; `cic_meus_links()` devolve `valor` |
 
 ## Camada tratada (RPCs do app)
 
@@ -113,7 +114,7 @@ refunded/chargeback não muda mais. Overdue/unpaid virando paid continua passand
 |---|---|---|
 | `cic_config` | `chave` | slug, nome, fuso, `tmb_fator_valor` = 0,5 (provisório), `utm_vendedor` (utm_source + `comercial_`), `conversao_alvo` (15% a partir da etapa 2) |
 | `vendedores` | `utm_slug` | 4 vendedores (`comercial_nome-sobrenome`, igual ao `utm_source` dos links) |
-| `links_venda` | `id` | link base por oferta. Ativos (24/11/2026): Ultra Black 2026 (Aluno, Não Aluno e, desde 24/11, Aluno · boleto parcelado R$ 897 e Não Aluno · boleto parcelado R$ 1087, sem cupom), Meal Prep Express (397), Meal Prep Express + Regina IA (297 e 497) e Clubinho (Anual R$ 497, Semestral R$ 248); todos Hubla. O link de cada vendedor (com os cupons) sai de `cic_meus_links()`; vendedor inativo não recebe link |
+| `links_venda` | `id` | link base por oferta. Ativos (24/11/2026), com `valor` = preço cheio sem cupom: Ultra Black 2026 Aluno R$ 797, Aluno · boleto parcelado R$ 897 (sem cupom), Não Aluno R$ 987, Não Aluno · boleto parcelado R$ 1.087 (sem cupom); Meal Prep Express R$ 397; Meal Prep Express + Regina IA R$ 297 e R$ 497; Clubinho Anual R$ 497 e Semestral R$ 248; todos Hubla. O rótulo leva só a opção (vazio quando o preço é a única diferença). O link de cada vendedor (com os cupons) sai de `cic_meus_links()`; vendedor inativo não recebe link |
 | `links_venda_cupons` | `id` (único `link_id, cupom`) | cupons de cada link, vários por link, com `desconto`, `ordem` e `ativo`. Hoje: 5OFF (5%) e 10CONTO (10%) no Ultra Black; DEZCONTO (10%) no Meal Prep |
 | `perfis` | `email` | 4 admins + 4 vendedores; `user_id` se preenche sozinho quando o usuário é criado no Auth |
 | `perfil_menus` | `papel, menu` | admin: 11 menus; vendedor: minhapagina, relatorios, reembolsos |

@@ -196,7 +196,7 @@ Regras:
 
 ## Ofertas e cupons vigentes (06/11/2026)
 
-Links de venda na Minha página, cada um com o cupom e botão de copiar
+Links de venda na Minha página em grade (oferta, valor, link e cupons, desde 24/11/2026), cada um com o cupom e botão de copiar
 (`links_venda`, `links_venda_cupons`, `cic_meus_links()`). Um link pode ter vários cupons:
 
 | Produto | Oferta | Cupom |
