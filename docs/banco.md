@@ -113,7 +113,7 @@ refunded/chargeback não muda mais. Overdue/unpaid virando paid continua passand
 |---|---|---|
 | `cic_config` | `chave` | slug, nome, fuso, `tmb_fator_valor` = 0,5 (provisório), `utm_vendedor` (utm_source + `comercial_`), `conversao_alvo` (15% a partir da etapa 2) |
 | `vendedores` | `utm_slug` | 4 vendedores (`comercial_nome-sobrenome`, igual ao `utm_source` dos links) |
-| `links_venda` | `id` | link base por oferta. Ativos: Ultra Black 2026 (Aluno, Não Aluno), Meal Prep Express (397) e Meal Prep Express + Regina IA (497); todos Hubla. O link de cada vendedor (com os cupons) sai de `cic_meus_links()`; vendedor inativo não recebe link |
+| `links_venda` | `id` | link base por oferta. Ativos (24/11/2026): Ultra Black 2026 (Aluno, Não Aluno e, desde 24/11, Aluno · boleto parcelado R$ 897 e Não Aluno · boleto parcelado R$ 1087, sem cupom), Meal Prep Express (397), Meal Prep Express + Regina IA (297 e 497) e Clubinho (Anual R$ 497, Semestral R$ 248); todos Hubla. O link de cada vendedor (com os cupons) sai de `cic_meus_links()`; vendedor inativo não recebe link |
 | `links_venda_cupons` | `id` (único `link_id, cupom`) | cupons de cada link, vários por link, com `desconto`, `ordem` e `ativo`. Hoje: 5OFF (5%) e 10CONTO (10%) no Ultra Black; DEZCONTO (10%) no Meal Prep |
 | `perfis` | `email` | 4 admins + 4 vendedores; `user_id` se preenche sozinho quando o usuário é criado no Auth |
 | `perfil_menus` | `papel, menu` | admin: 11 menus; vendedor: minhapagina, relatorios, reembolsos |
