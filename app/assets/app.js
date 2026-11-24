@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-19a';
-  var MUDANCAS = 'Nova operação no seletor: Dra. Poliane Cardoso (login espelhado)';
+  var BUILD = '2026-11-24a';
+  var MUDANCAS = 'Minha página: links de venda alinhados em grade (oferta, valor, link e cupons) e links do Ultra Black com boleto parcelado';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -1392,24 +1392,33 @@
         if (perfil.papel === 'admin') {
           var h = document.createElement('h3'); h.textContent = nome; g.appendChild(h);
         }
+        // grade: oferta | valor | link + copiar | cupons (cada um com copiar)
+        var cab = document.createElement('div'); cab.className = 'link-venda link-cab';
+        ['Oferta', 'Valor', 'Link', 'Cupons'].forEach(function (t) { var s = document.createElement('div'); s.textContent = t; cab.appendChild(s); });
+        g.appendChild(cab);
         grupos[nome].forEach(function (l) {
           var row = document.createElement('div'); row.className = 'link-venda';
-          var info = document.createElement('div'); info.className = 'link-info';
-          var n = document.createElement('div'); n.className = 'link-nome'; n.textContent = l.produto + ' · ' + l.rotulo;
-          var u = document.createElement('div'); u.className = 'link-url'; u.textContent = l.url; u.title = l.url;
-          info.appendChild(n); info.appendChild(u);
-          (Array.isArray(l.cupons) ? l.cupons : []).forEach(function (cp) {
-            if (!cp || !cp.cupom) return;
+          var of = document.createElement('div'); of.className = 'link-oferta';
+          var pn = document.createElement('div'); pn.className = 'link-nome'; pn.textContent = l.produto; of.appendChild(pn);
+          if (l.rotulo) { var op = document.createElement('div'); op.className = 'link-opcao'; op.textContent = l.rotulo; of.appendChild(op); }
+          var vl = document.createElement('div'); vl.className = 'link-valor'; vl.textContent = l.valor != null ? rs(l.valor) : '–';
+          var lk = document.createElement('div'); lk.className = 'link-link';
+          var u = document.createElement('span'); u.className = 'link-url'; u.textContent = l.url; u.title = l.url;
+          var b = document.createElement('button'); b.type = 'button'; b.className = 'btn-copiar'; b.textContent = 'Copiar link';
+          b.addEventListener('click', function () { copiar(l.url, b); });
+          lk.appendChild(u); lk.appendChild(b);
+          var cps = document.createElement('div'); cps.className = 'link-cupons';
+          var lc = (Array.isArray(l.cupons) ? l.cupons : []).filter(function (cp) { return cp && cp.cupom; });
+          if (!lc.length) { var sc = document.createElement('span'); sc.className = 'fraco'; sc.textContent = 'Sem cupom'; cps.appendChild(sc); }
+          lc.forEach(function (cp) {
             var c = document.createElement('div'); c.className = 'link-cupom';
-            var ct = document.createElement('span');
-            ct.textContent = 'Cupom: ' + cp.cupom + (cp.desconto ? ' (' + cp.desconto + ' off)' : '');
+            var ct = document.createElement('span'); ct.className = 'link-cupom-cod'; ct.textContent = cp.cupom;
+            var cd = document.createElement('span'); cd.className = 'link-cupom-desc'; cd.textContent = cp.desconto ? cp.desconto + ' off' : '';
             var cb = document.createElement('button'); cb.type = 'button'; cb.className = 'btn-copiar btn-copiar-mini'; cb.textContent = 'Copiar';
             cb.addEventListener('click', function () { copiar(cp.cupom, cb); });
-            c.appendChild(ct); c.appendChild(cb); info.appendChild(c);
+            c.appendChild(ct); c.appendChild(cd); c.appendChild(cb); cps.appendChild(c);
           });
-          var b = document.createElement('button'); b.type = 'button'; b.className = 'btn-copiar'; b.textContent = 'Copiar';
-          b.addEventListener('click', function () { copiar(l.url, b); });
-          row.appendChild(info); row.appendChild(b); g.appendChild(row);
+          row.appendChild(of); row.appendChild(vl); row.appendChild(lk); row.appendChild(cps); g.appendChild(row);
         });
         lista.appendChild(g);
       });
