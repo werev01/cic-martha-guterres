@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-25a';
-  var MUDANCAS = 'Faturamento: tela com faturamento total, valor recebido, taxas e líquido, sinal e saldo como uma venda só';
+  var BUILD = '2026-11-25b';
+  var MUDANCAS = 'Faturamento: rótulos iguais aos da Home (Faturamento bruto, Faturamento líquido) e Valor das vendas para o total';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -22,7 +22,7 @@
     motivosperda:  { rotulo: 'Motivos de perda',      desc: 'Por que os leads saem do funil.' },
     ciclovenda:    { rotulo: 'Ciclo de vendas',       desc: 'Tempo do primeiro contato até a venda.' },
     reembolsos:    { rotulo: 'Reembolsos',            desc: 'Reembolsos efetivados e o que foi abatido.' },
-    faturamento:   { rotulo: 'Faturamento',          desc: 'Faturamento total, valor recebido, taxas e líquido das vendas do comercial.' }
+    faturamento:   { rotulo: 'Faturamento',          desc: 'Valor das vendas, faturamento bruto, taxas e faturamento líquido do comercial.' }
   };
   // Símbolo WeRev (dois V espelhados, ampulheta). Fonte: assets/marca/simbolo.svg
   var SIMBOLO = 'M590 0 L0 0 L168 460 L4 920 L595 920 L425 460 Z M550 16 L392 460 L555 904 L106 904 L263 460 L100 16 Z';
@@ -1032,11 +1032,11 @@
           var fat = soma(linhas, 'faturamento'), rec = soma(linhas, 'recebido');
           var liq = soma(linhas, 'liquido'), tax = soma(linhas, 'taxas');
           var h = '<div class="kpis">' +
-            kpi('Faturamento total', rs(fat), plural(vendas.length, 'venda', 'vendas') +
+            kpi('Valor das vendas', rs(fat), plural(vendas.length, 'venda', 'vendas') +
               (reemb.length ? ' · ' + plural(reemb.length, 'reembolso', 'reembolsos') + ' abatidos' : ''), true) +
-            kpi('Valor recebido (bruto)', rs(rec), 'o que já entrou, pelo valor pago na Hubla') +
-            kpi('Taxas da Hubla', rs(tax), rec > 0 ? pct(tax / rec) + ' do recebido' : '–') +
-            kpi('Líquido', rs(liq), 'recebido menos taxas') + '</div>';
+            kpi('Faturamento bruto', rs(rec), 'o que já entrou, pelo valor pago na Hubla') +
+            kpi('Taxas da Hubla', rs(tax), rec > 0 ? pct(tax / rec) + ' do bruto' : '–') +
+            kpi('Faturamento líquido', rs(liq), 'bruto menos taxas') + '</div>';
 
           function celula(l, campo) {
             var v = Number(l[campo]) || 0;
@@ -1064,7 +1064,7 @@
             ? '<section class="bloco"><header class="lista-topo"><div><h2>Vendas do comercial</h2><p>' +
               plural(vendas.length, 'venda', 'vendas') + ' em ' + periodoTxt() + '</p></div></header>' +
               '<div class="tabela-rolagem"><table class="tabela lista"><thead><tr><th>Data</th><th>Hora</th><th>Cliente</th><th>Telefone</th>' +
-              '<th>Vendedor</th><th>Produto</th><th>Pagamento</th><th class="n">Faturamento total</th><th class="n">Recebido</th>' +
+              '<th>Vendedor</th><th>Produto</th><th>Pagamento</th><th class="n">Valor da venda</th><th class="n">Bruto</th>' +
               '<th class="n">Líquido</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>'
             : '<section class="bloco"><p class="painel-msg vazio">Nenhuma venda do comercial em ' + periodoTxt() + '.</p></section>';
 
@@ -1078,10 +1078,10 @@
                 '<td class="n"><span class="valor-ok">' + rs(l.bruto) + '</span></td></tr>';
             }).join('');
             blocoSinais = '<section class="bloco"><header class="lista-topo"><div><h2>Sinais aguardando saldo</h2><p>' +
-              plural(sinais.length, 'sinal pago', 'sinais pagos') + ', ainda sem o saldo. Não entram no faturamento acima.</p></div>' +
-              '<div class="lista-total"><span>Recebido em sinais</span><strong>' + rs(soma(sinais, 'bruto')) + '</strong></div></header>' +
+              plural(sinais.length, 'sinal pago', 'sinais pagos') + ', ainda sem o saldo. Não entram nas vendas acima.</p></div>' +
+              '<div class="lista-total"><span>Bruto em sinais</span><strong>' + rs(soma(sinais, 'bruto')) + '</strong></div></header>' +
               '<div class="tabela-rolagem"><table class="tabela lista"><thead><tr><th>Data</th><th>Cliente</th><th>Telefone</th>' +
-              '<th>Vendedor</th><th class="n">Recebido</th></tr></thead><tbody>' + rs2 + '</tbody></table></div></section>';
+              '<th>Vendedor</th><th class="n">Bruto</th></tr></thead><tbody>' + rs2 + '</tbody></table></div></section>';
           }
           corpo.innerHTML = h + lista + blocoSinais;
         });
