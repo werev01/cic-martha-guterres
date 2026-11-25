@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-24a';
-  var MUDANCAS = 'Minha página: links de venda alinhados em grade (oferta, valor, link e cupons) e links do Ultra Black com boleto parcelado';
+  var BUILD = '2026-11-25a';
+  var MUDANCAS = 'Faturamento: tela com faturamento total, valor recebido, taxas e líquido, sinal e saldo como uma venda só';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -21,7 +21,8 @@
     taxapassagem:  { rotulo: 'Taxa de passagem',      desc: 'Conversão entre as etapas do CRM.' },
     motivosperda:  { rotulo: 'Motivos de perda',      desc: 'Por que os leads saem do funil.' },
     ciclovenda:    { rotulo: 'Ciclo de vendas',       desc: 'Tempo do primeiro contato até a venda.' },
-    reembolsos:    { rotulo: 'Reembolsos',            desc: 'Reembolsos efetivados e o que foi abatido.' }
+    reembolsos:    { rotulo: 'Reembolsos',            desc: 'Reembolsos efetivados e o que foi abatido.' },
+    faturamento:   { rotulo: 'Faturamento',          desc: 'Faturamento total, valor recebido, taxas e líquido das vendas do comercial.' }
   };
   // Símbolo WeRev (dois V espelhados, ampulheta). Fonte: assets/marca/simbolo.svg
   var SIMBOLO = 'M590 0 L0 0 L168 460 L4 920 L595 920 L425 460 Z M550 16 L392 460 L555 904 L106 904 L263 460 L100 16 Z';
@@ -1009,6 +1010,85 @@
     });
   }
 
+  // ---------- Faturamento ----------
+  var FORMA_PAG = { bank_slip: 'Boleto', pix: 'Pix', credit_card: 'Cartão' };
+  function telaFaturamento(alvo, id) {
+    carregando(alvo);
+    comVendedores(function () {
+      if (id !== pedido) return;
+      var corpo = barraFiltro(alvo, carregar);
+      carregar(id);
+      function carregar(idc) {
+        corpo.innerHTML = '<p class="painel-msg">Carregando...</p>';
+        var par = { p_inicio: filtro.ini, p_fim: filtro.fim };
+        Promise.all([sb.rpc('cic_faturamento', par), sb.rpc('cic_lista_sinais', par)]).then(function (rr) {
+          if (idc !== pedido) return;
+          var e = rr[0].error || rr[1].error;
+          if (e) return falhou(corpo, e);
+          var linhas = aplicaVend(rr[0].data || []);
+          var vendas = linhas.filter(function (l) { return l.tipo === 'venda'; });
+          var reemb = linhas.filter(function (l) { return l.tipo === 'reembolso'; });
+          var sinais = aplicaVend(rr[1].data || []).filter(function (l) { return l.situacao === 'aguardando saldo'; });
+          var fat = soma(linhas, 'faturamento'), rec = soma(linhas, 'recebido');
+          var liq = soma(linhas, 'liquido'), tax = soma(linhas, 'taxas');
+          var h = '<div class="kpis">' +
+            kpi('Faturamento total', rs(fat), plural(vendas.length, 'venda', 'vendas') +
+              (reemb.length ? ' · ' + plural(reemb.length, 'reembolso', 'reembolsos') + ' abatidos' : ''), true) +
+            kpi('Valor recebido (bruto)', rs(rec), 'o que já entrou, pelo valor pago na Hubla') +
+            kpi('Taxas da Hubla', rs(tax), rec > 0 ? pct(tax / rec) + ' do recebido' : '–') +
+            kpi('Líquido', rs(liq), 'recebido menos taxas') + '</div>';
+
+          function celula(l, campo) {
+            var v = Number(l[campo]) || 0;
+            return l.tipo === 'reembolso'
+              ? '<span class="valor-abatido">− ' + rs(Math.abs(v)) + '</span>'
+              : '<span class="valor-ok">' + rs(v) + '</span>';
+          }
+          var rows = linhas.map(function (l) {
+            var forma = (FORMA_PAG[l.forma_pagamento] || '–') +
+              (l.boleto_parcelado ? '<div class="fraco">parcelado, 1ª parcela</div>' : '');
+            return '<tr><td><strong>' + ddmm(l.data) + '</strong> <span class="fraco">' + diaSemana(l.data) + '</span>' +
+              (l.tipo === 'reembolso' ? '<div><span class="tag tag-abaixo">Reembolso</span></div>' : '') + '</td>' +
+              '<td class="fraco">' + esc(String(l.hora || '').slice(0, 5)) + '</td>' +
+              '<td class="quebra">' + esc(l.cliente || '–') + '</td>' +
+              '<td class="fraco">' + esc(fone(l.telefone)) + '</td>' +
+              '<td>' + pessoa(l.vendedor_nome) + '</td>' +
+              '<td class="quebra">' + esc(l.produto || '–') + (l.oferta ? '<div class="fraco">' + esc(l.oferta) + '</div>' : '') +
+                (l.com_sinal ? '<div><span class="tag">Sinal + saldo</span></div>' : '') + '</td>' +
+              '<td>' + forma + '</td>' +
+              '<td class="n">' + celula(l, 'faturamento') + '</td>' +
+              '<td class="n">' + celula(l, 'recebido') + '</td>' +
+              '<td class="n">' + celula(l, 'liquido') + '</td></tr>';
+          }).join('');
+          var lista = linhas.length
+            ? '<section class="bloco"><header class="lista-topo"><div><h2>Vendas do comercial</h2><p>' +
+              plural(vendas.length, 'venda', 'vendas') + ' em ' + periodoTxt() + '</p></div></header>' +
+              '<div class="tabela-rolagem"><table class="tabela lista"><thead><tr><th>Data</th><th>Hora</th><th>Cliente</th><th>Telefone</th>' +
+              '<th>Vendedor</th><th>Produto</th><th>Pagamento</th><th class="n">Faturamento total</th><th class="n">Recebido</th>' +
+              '<th class="n">Líquido</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>'
+            : '<section class="bloco"><p class="painel-msg vazio">Nenhuma venda do comercial em ' + periodoTxt() + '.</p></section>';
+
+          var blocoSinais = '';
+          if (sinais.length) {
+            var rs2 = sinais.map(function (l) {
+              return '<tr><td><strong>' + ddmm(l.data) + '</strong> <span class="fraco">' + diaSemana(l.data) + '</span></td>' +
+                '<td class="quebra">' + esc(l.cliente || '–') + '</td>' +
+                '<td class="fraco">' + esc(fone(l.telefone)) + '</td>' +
+                '<td>' + pessoa(l.vendedor_nome) + '</td>' +
+                '<td class="n"><span class="valor-ok">' + rs(l.bruto) + '</span></td></tr>';
+            }).join('');
+            blocoSinais = '<section class="bloco"><header class="lista-topo"><div><h2>Sinais aguardando saldo</h2><p>' +
+              plural(sinais.length, 'sinal pago', 'sinais pagos') + ', ainda sem o saldo. Não entram no faturamento acima.</p></div>' +
+              '<div class="lista-total"><span>Recebido em sinais</span><strong>' + rs(soma(sinais, 'bruto')) + '</strong></div></header>' +
+              '<div class="tabela-rolagem"><table class="tabela lista"><thead><tr><th>Data</th><th>Cliente</th><th>Telefone</th>' +
+              '<th>Vendedor</th><th class="n">Recebido</th></tr></thead><tbody>' + rs2 + '</tbody></table></div></section>';
+          }
+          corpo.innerHTML = h + lista + blocoSinais;
+        });
+      }
+    });
+  }
+
   // ---------- Telas de gestão (admin) ----------
   // Barras horizontais: itens [{rotulo, valor, sub}]
   function barrasH(itens, opc) {
@@ -1369,7 +1449,7 @@
     }
   }
 
-  var RENDER = { home: telaHome, metadomes: telaMeta, minhapagina: telaMinha, relatorios: telaRelatorios, reembolsos: telaReembolsos,
+  var RENDER = { home: telaHome, metadomes: telaMeta, minhapagina: telaMinha, relatorios: telaRelatorios, reembolsos: telaReembolsos, faturamento: telaFaturamento,
     desempenho: telaDesempenho, taxapassagem: telaPassagem, motivosperda: telaMotivos, ciclovenda: telaCiclo, mensageria: telaMensageria };
 
   // ---------- Minha página: links de venda ----------
