@@ -582,3 +582,13 @@ tr.rei td strong { color: #8a6a2c; }
 .oc-leg i { display: inline-block; width: 10px; height: 8px; border-radius: 2px; }
 .oc-leg .oc-l1 { background: var(--linen, #e6dfdd); }
 .oc-leg .oc-l2 { background: var(--navy); margin-left: 8px; }
+
+/* Mensageria: abas Disparos / Carteira (só onde o cliente tem a tela extra) */
+.abas-tela { margin: 0 0 18px; }
+.bh-trilho.bh-emp { display: flex; }
+.bh-trilho.bh-emp .bh-barra { border-radius: 0; }
+.bh-trilho.bh-emp .bh-barra:first-child { border-radius: 99px 0 0 99px; }
+.bh-trilho.bh-emp .bh-barra:last-child { border-radius: 0 99px 99px 0; }
+.bh-trilho.bh-emp .bh-barra:only-child { border-radius: 99px; }
+.cx-cor { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; vertical-align: -1px; }
+.aviso-saldo { margin: 0 0 16px; }

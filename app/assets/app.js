@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-25b';
-  var MUDANCAS = 'Faturamento: rótulos iguais aos da Home (Faturamento bruto, Faturamento líquido) e Valor das vendas para o total';
+  var BUILD = '2026-11-26a';
+  var MUDANCAS = 'Mensageria: aba Carteira (extrato da carteira do Unnichat), só para admin e só no cliente com a tela extra';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -1338,7 +1338,226 @@
   }
 
   // ---------- Mensageria (admin) ----------
+  // Tela extra liberada por cliente em config/clientes.js (telasExtras)
+  function temExtra(k) { return !!(cliente && cliente.telasExtras && cliente.telasExtras.indexOf(k) >= 0); }
+
+  // Com a aba Carteira liberada (cliente + admin), a Mensageria ganha as abas Disparos e Carteira.
+  // Sem ela, a tela é a de sempre.
+  var abaMensageria = 'disparos';
   function telaMensageria(alvo, id) {
+    if (!(temExtra('mensageria_carteira') && perfil && perfil.papel === 'admin')) return telaMensageriaDisparos(alvo, id);
+    alvo.innerHTML = '<div class="abas-tela"><div class="alternar" role="tablist" aria-label="Mensageria">' +
+      '<button type="button" role="tab" data-aba="disparos">Disparos</button>' +
+      '<button type="button" role="tab" data-aba="carteira">Carteira</button></div></div><div id="msg-aba"></div>';
+    var abrir = function (aba, idc) {
+      abaMensageria = aba;
+      Array.prototype.forEach.call(alvo.querySelectorAll('[data-aba]'), function (b) {
+        var on = b.getAttribute('data-aba') === aba;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      (aba === 'carteira' ? telaCarteira : telaMensageriaDisparos)($('msg-aba'), idc);
+    };
+    Array.prototype.forEach.call(alvo.querySelectorAll('[data-aba]'), function (b) {
+      b.addEventListener('click', function () {
+        if (b.getAttribute('data-aba') !== abaMensageria) abrir(b.getAttribute('data-aba'), ++pedido);
+      });
+    });
+    abrir(abaMensageria, id);
+  }
+
+  // ---------- Mensageria · Carteira (extrato da carteira do Unnichat, carga única) ----------
+  var CART_CAT = [['utilidade', 'Utility'], ['servico_pago', 'Serviço (pago)'], ['servico_franquia', 'Serviço (franquia)'], ['marketing', 'Marketing'], ['outro', 'Sem categoria']];
+  var CART_ORIGEM = [['Broadcast', 'Broadcast'], ['Automações', 'Automações'], ['Live chat', 'Vendedores']];
+  var CART_COR = ['#1f2b38', '#844420', '#b8975a', '#c6c6c6', '#8e6e59'];
+  var catCarteira = 'todas';
+  function nomeCat(k) { var x = CART_CAT.filter(function (c) { return c[0] === k; })[0]; return x ? x[1] : 'Sem categoria'; }
+  function nomeOrigem(k) { var x = CART_ORIGEM.filter(function (c) { return c[0] === k; })[0]; return x ? x[1] : k; }
+
+  function telaCarteira(alvo, id) {
+    carregando(alvo);
+    sb.rpc('cic_carteira').then(function (r) {
+      if (id !== pedido) return;
+      if (r.error) return falhou(alvo, r.error);
+      montaCarteira(alvo, r.data || {});
+    });
+  }
+
+  function montaCarteira(alvo, d) {
+    var L = d.lancamentos || [], F = d.falhas || [], C = d.campanhas || [], V = d.vendas || [], S = d.saldo;
+    if (!L.length) { alvo.innerHTML = '<p class="painel-msg vazio">Nenhum lançamento da carteira carregado.</p>'; return; }
+    var cobrado = function (x) { return x.categoria !== 'servico_franquia'; };
+    var somaSe = function (lista, k, f) { return lista.reduce(function (a, x) { return a + (!f || f(x) ? Number(x[k]) || 0 : 0); }, 0); };
+    var ou = function (v, fmt) { return v === null || v === undefined ? '–' : fmt(v); };
+    var total = somaSe(L, 'valor');
+    var gastoCx = {};
+    L.forEach(function (x) { gastoCx[x.conexao] = (gastoCx[x.conexao] || 0) + (Number(x.valor) || 0); });
+    var conexoes = Object.keys(gastoCx).sort(function (a, b) { return gastoCx[b] - gastoCx[a] || (a < b ? -1 : 1); });
+    var corCx = {};
+    conexoes.forEach(function (c, i) { corCx[c] = CART_COR[i % CART_COR.length]; });
+    var porCx = function (c) { return function (x) { return x.conexao === c; }; };
+    var dmy = function (dt) { return dt ? ddmm(String(dt).slice(0, 10)) : '–'; };
+
+    // 1. saldo
+    var aviso = '';
+    if (S && Number(S.saldo) <= 0) {
+      var ult = S.ultimo_debito_pago ? String(S.ultimo_debito_pago) : '';
+      var ultTxt = /^\d{4}-\d{2}-\d{2}/.test(ult) ? ddmm(ult.slice(0, 10)) + (ult.slice(11, 16) ? ' ' + ult.slice(11, 16) : '') : ult;
+      aviso = '<p class="aviso-nota aviso-saldo"><strong>Carteira sem saldo: ' + rs(S.saldo) + '.</strong>' +
+        (ultTxt ? ' Último débito pago em ' + esc(ultTxt) + '.' : '') + ' Templates pagos podem falhar até a recarga.</p>';
+    }
+
+    // 2. KPIs
+    var cards = '<div class="kpis">' +
+      kpi('Gasto total', rs(total), 'débitos na carteira, ' + plural(conexoes.length, 'conexão', 'conexões'), true) +
+      kpi('Envios cobrados', num(somaSe(L, 'envios', cobrado)), 'templates e serviço pago') +
+      kpi('Envios na franquia', num(somaSe(L, 'envios', function (x) { return !cobrado(x); })), 'serviço sem custo') +
+      kpi('Falhas', num(somaSe(F, 'falhas')), 'não debitadas · ' + rs(somaSe(F, 'valor_nao_cobrado')) + ' não cobrados') +
+      conexoes.map(function (c) {
+        var g = somaSe(L, 'valor', porCx(c));
+        return kpi(c, rs(g), pct(total ? g / total : 0) + ' do total');
+      }).join('') + '</div>';
+
+    // 3. custo por dia por conexão (dias sem débito ficam vazios)
+    var diasL = L.map(function (x) { return String(x.dia).slice(0, 10); }).sort();
+    var dias = [];
+    for (var dd = diasL[0]; dd <= diasL[diasL.length - 1]; dd = somaDias(dd, 1)) dias.push(dd);
+    var serieDia = dias.map(function (dia) {
+      var o = { dia: dia };
+      conexoes.forEach(function (c, i) {
+        o['c' + i] = somaSe(L, 'valor', function (x) { return x.conexao === c && String(x.dia).slice(0, 10) === dia; });
+      });
+      return o;
+    });
+    var porDia = grafBarras(serieDia, conexoes.map(function (c, i) { return { chave: 'c' + i, nome: c, cor: corCx[c] }; }),
+      { largura: alvo.clientWidth - 40, rotulo: 'Gasto da carteira por dia e conexão' });
+
+    // 4. custo por venda
+    var linhasVenda = conexoes.map(function (c) {
+      var g = somaSe(L, 'valor', porCx(c)), vs = V.filter(porCx(c)), q = vs.length, liq = somaSe(vs, 'liquido');
+      return [esc(c), rs(g), num(q), q ? rs(g / q) : '–', q ? rs(liq) : '–', liq > 0 ? rs(g / liq) : '–'];
+    });
+    var qT = V.length, liqT = somaSe(V, 'liquido');
+    linhasVenda.push(['<strong>Total</strong>', '<strong>' + rs(total) + '</strong>', '<strong>' + num(qT) + '</strong>',
+      '<strong>' + (qT ? rs(total / qT) : '–') + '</strong>', '<strong>' + (qT ? rs(liqT) : '–') + '</strong>',
+      '<strong>' + (liqT > 0 ? rs(total / liqT) : '–') + '</strong>']);
+    var vendasTxt = V.map(function (v) {
+      return esc(v.vendedor) + ' em ' + dmy(v.data) + ' (' + esc(v.conexao) + ', líquido ' + rs(v.liquido) + ')';
+    }).join('; ');
+
+    // 5. custo por origem: templates (utilidade + marketing) e serviço (pago + franquia)
+    var origens = CART_ORIGEM.map(function (o) {
+      var daO = function (x) { return x.origem === o[0]; };
+      return {
+        rotulo: o[1],
+        tpl: somaSe(L, 'valor', function (x) { return daO(x) && (x.categoria === 'utilidade' || x.categoria === 'marketing'); }),
+        srv: somaSe(L, 'valor', function (x) { return daO(x) && (x.categoria === 'servico_pago' || x.categoria === 'servico_franquia'); }),
+        outro: somaSe(L, 'valor', function (x) { return daO(x) && ['utilidade', 'marketing', 'servico_pago', 'servico_franquia'].indexOf(x.categoria) < 0; }),
+        env: somaSe(L, 'envios', daO)
+      };
+    }).filter(function (o) { return o.env > 0; });
+    var maxO = Math.max.apply(null, origens.map(function (o) { return o.tpl + o.srv + o.outro; }).concat([0.01]));
+    var origemH = '<div class="legenda"><span><i style="background:' + CART_COR[0] + '"></i>Templates (utility + marketing)</span>' +
+      '<span><i style="background:' + CART_COR[3] + '"></i>Serviço (pago + franquia)</span></div><div class="barras-h">' +
+      origens.map(function (o) {
+        var t = o.tpl + o.srv + o.outro;
+        return '<div class="bh" title="' + esc(o.rotulo + ': templates ' + rs(o.tpl) + ' · serviço ' + rs(o.srv)) + '"><div class="bh-rotulo">' + esc(o.rotulo) +
+          '<span>templates ' + rs(o.tpl) + ' · serviço ' + rs(o.srv) + '</span></div>' +
+          '<div class="bh-trilho bh-emp">' +
+          (o.tpl > 0 ? '<div class="bh-barra" style="width:' + (o.tpl / maxO * 100).toFixed(1) + '%;background:' + CART_COR[0] + '"></div>' : '') +
+          (o.srv > 0 ? '<div class="bh-barra" style="width:' + (o.srv / maxO * 100).toFixed(1) + '%;background:' + CART_COR[3] + '"></div>' : '') +
+          (o.outro > 0 ? '<div class="bh-barra" style="width:' + (o.outro / maxO * 100).toFixed(1) + '%;background:' + CART_COR[4] + '"></div>' : '') +
+          '</div><div class="bh-valor">' + rs(t) + ' <span>' + pct(total ? t / total : 0, 0) + '</span></div></div>';
+      }).join('') + '</div>';
+
+    // 6. custo por categoria, com seletor de origem
+    var linhasCat = function (lista) {
+      var ls = CART_CAT.map(function (c) {
+        var daC = function (x) { return x.categoria === c[0]; };
+        var e = somaSe(lista, 'envios', daC), g = somaSe(lista, 'valor', daC);
+        var pm = !e ? '–' : (c[0] === 'servico_franquia' ? 'franquia' : rs(g / e));
+        return { k: c[0], rotulo: c[1], e: e, g: g, linha: [esc(c[1]), e ? num(e) : '–', e ? rs(g) : '–', pm] };
+      });
+      return ls;
+    };
+    var catHtml = function () {
+      var lista = catCarteira === 'todas' ? L : L.filter(function (x) { return x.origem === catCarteira; });
+      var ls = linhasCat(lista), eT = somaSe(lista, 'envios'), gT = somaSe(lista, 'valor');
+      var barras = barrasH(ls.filter(function (l) { return l.g > 0; }).map(function (l) {
+        return { rotulo: l.rotulo, valor: l.g, sub: num(l.e) + ' envios' };
+      }), { moeda: true, vazio: 'Nenhum gasto nessa origem.' });
+      var linhas = ls.map(function (l) { return l.linha; });
+      linhas.push(['<strong>Total</strong>', '<strong>' + num(eT) + '</strong>', '<strong>' + rs(gT) + '</strong>', '<strong>' + (eT ? rs(gT / eT) : '–') + '</strong>']);
+      return barras + tabela(['Categoria', 'Envios', 'Gasto', 'Preço médio'], linhas, [1, 2, 3]);
+    };
+    var seletorCat = '<div class="alternar" role="group" aria-label="Origem">' +
+      [['todas', 'Todas']].concat(CART_ORIGEM).map(function (o) {
+        return '<button type="button" data-cat="' + esc(o[0]) + '"' + (catCarteira === o[0] ? ' class="on"' : '') + '>' + esc(o[1]) + '</button>';
+      }).join('') + '</div>';
+
+    // 7. por conexão
+    var linhasCx = conexoes.map(function (c) {
+      var lc = L.filter(porCx(c)), g = somaSe(lc, 'valor');
+      var deb = lc.filter(function (x) { return Number(x.valor) > 0; }).map(function (x) { return String(x.dia).slice(0, 10); }).sort();
+      return ['<span class="cx-cor" style="background:' + corCx[c] + '"></span>' + esc(c), rs(g), pct(total ? g / total : 0),
+        num(somaSe(lc, 'envios', cobrado)), num(somaSe(lc, 'envios', function (x) { return !cobrado(x); })),
+        num(somaSe(F.filter(porCx(c)), 'falhas')),
+        deb.length ? dmy(deb[0]) + ' a ' + dmy(deb[deb.length - 1]) : '–'];
+    });
+
+    // 8. por conexão e origem
+    var linhasCxO = [];
+    conexoes.forEach(function (c) {
+      CART_ORIGEM.forEach(function (o) {
+        var f = function (x) { return x.conexao === c && x.origem === o[0]; };
+        var lc = L.filter(f);
+        if (!lc.length) return;
+        linhasCxO.push([esc(c), esc(o[1]), num(somaSe(lc, 'envios', cobrado)), num(somaSe(lc, 'envios', function (x) { return !cobrado(x); })),
+          num(somaSe(F.filter(f), 'falhas')), rs(somaSe(lc, 'valor'))]);
+      });
+    });
+
+    // 9. por tipo de mensagem
+    var linhasTipo = linhasCat(L).map(function (l) { return l.linha; });
+    linhasTipo.push(['<strong>Total</strong>', '<strong>' + num(somaSe(L, 'envios')) + '</strong>', '<strong>' + rs(total) + '</strong>',
+      '<strong>' + rs(total / (somaSe(L, 'envios') || 1)) + '</strong>']);
+
+    // 10. broadcasts e automações
+    var linhasCamp = C.map(function (c) {
+      return ['<div class="nome-longo">' + esc(c.nome) + '</div>', esc(c.conexao), esc(nomeOrigem(c.origem)), num(c.envios), num(c.falhas),
+        '<strong>' + rs(c.custo) + '</strong>', dmy(c.primeiro), dmy(c.ultimo)];
+    });
+
+    alvo.innerHTML = aviso + cards +
+      bloco('Custo por dia', 'Gasto da carteira por dia, empilhado por conexão. Dia sem débito fica vazio.', porDia) +
+      bloco('Custo por venda', 'O gasto inclui todos os disparos da conexão, não só os que levaram à venda.' + (vendasTxt ? ' Vendas: ' + vendasTxt + '.' : ''),
+        tabela(['Conexão', 'Gasto', 'Vendas', 'Custo por venda', 'Líquido', 'Gasto por R$ 1 de líquido'], linhasVenda, [1, 2, 3, 4, 5])) +
+      '<div class="duas">' +
+      bloco('Custo por origem', 'Vendedores = live chat. Templates (utility + marketing) e serviço (pago + franquia).', origemH) +
+      '<section class="bloco"><header class="bloco-topo bloco-topo-acao"><div><h2>Custo por categoria</h2><p>Preço médio = gasto ÷ envios.</p></div>' +
+      seletorCat + '</header><div id="cart-cat">' + catHtml() + '</div></section>' +
+      '</div>' +
+      bloco('Por conexão', 'Período: primeiro e último dia com débito.',
+        tabela(['Conexão', 'Gasto', 'Parte do total', 'Cobrados', 'Franquia', 'Falhas', 'Período'], linhasCx, [1, 2, 3, 4, 5])) +
+      bloco('Por origem', 'Por conexão e origem. Vendedores = live chat.',
+        tabela(['Conexão', 'Origem', 'Cobrados', 'Franquia', 'Falhas', 'Gasto'], linhasCxO, [2, 3, 4, 5])) +
+      bloco('Por tipo de mensagem', 'Todas as conexões e origens.', tabela(['Tipo', 'Envios', 'Gasto', 'Preço médio'], linhasTipo, [1, 2, 3])) +
+      bloco('Broadcasts e automações', 'Como aparecem no extrato, do maior gasto para o menor.', linhasCamp.length
+        ? tabela(['Nome', 'Conexão', 'Origem', 'Envios', 'Falhas', 'Gasto', 'Primeiro', 'Último'], linhasCamp, [3, 4, 5])
+        : '<p class="painel-msg vazio">Nenhum broadcast ou automação no extrato.</p>') +
+      '<p class="rodape-fonte">Fonte: extratos da carteira do Unnichat por conexão (carga única' + (S && S.fonte ? '; saldo: ' + esc(S.fonte) : '') +
+      '). Falha não é debitada. Serviço na franquia não tem custo.</p>';
+
+    Array.prototype.forEach.call(alvo.querySelectorAll('[data-cat]'), function (b) {
+      b.addEventListener('click', function () {
+        catCarteira = b.getAttribute('data-cat');
+        Array.prototype.forEach.call(alvo.querySelectorAll('[data-cat]'), function (x) { x.classList.toggle('on', x === b); });
+        $('cart-cat').innerHTML = catHtml();
+      });
+    });
+  }
+
+  function telaMensageriaDisparos(alvo, id) {
     carregando(alvo);
     if (id !== pedido) return;
     var corpo = barraFiltro(alvo, carregar, false, true);
