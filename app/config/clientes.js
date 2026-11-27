@@ -30,6 +30,7 @@ window.CIC_CLIENTES = [
     slug: 'poliane-cardoso',
     nome: 'Dra. Poliane Cardoso',
     supabaseUrl: 'https://qfgqfeyztnoxvsckuqwk.supabase.co',
-    chavePublica: 'sb_publishable_867rzqytmCNWO9WkvJNwSg_LXW5FROZ'
+    chavePublica: 'sb_publishable_867rzqytmCNWO9WkvJNwSg_LXW5FROZ',
+    rotulos: { 'Faturamento bruto': 'Cash Collected', 'bruto': 'cash collected', 'Bruto': 'Cash Collected' }
   }
 ];

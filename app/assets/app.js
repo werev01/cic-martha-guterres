@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-26a';
-  var MUDANCAS = 'Mensageria: aba Carteira (extrato da carteira do Unnichat), só para admin e só no cliente com a tela extra';
+  var BUILD = '2026-11-27a';
+  var MUDANCAS = 'Home: card Valor total vendido (quando a RPC devolve valor_vendido) e rótulos por cliente (rotulos em clientes.js)';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
   var TELAS = {
@@ -476,6 +476,9 @@
     }
   }
 
+  // Rótulo por cliente (clientes.js > rotulos); sem override, usa o texto padrão
+  function rot(t) { return (cliente && cliente.rotulos && cliente.rotulos[t]) || t; }
+
   // Card no formato do G2: rótulo, valor, linhas extras e a faixa HOJE / ONTEM
   function hmCard(rotulo, valor, extras, hoje, ontem, legenda) {
     return '<div class="hm-card"><div class="hm-lab">' + rotulo + '</div><div class="hm-val">' + valor + '</div>' +
@@ -492,7 +495,8 @@
   function montaHome(d, largura) {
     var p = d.periodo || {}, h = d.dia_hoje || {}, o = d.dia_ontem || {};
     var resultado = '<div class="hm-grid">' +
-      hmCard('Faturamento bruto', rs(p.bruto), '', rs(h.bruto), rs(o.bruto)) +
+      (p.valor_vendido !== undefined ? hmCard('Valor total vendido', rs(p.valor_vendido), '', rs(h.valor_vendido), rs(o.valor_vendido)) : '') +
+      hmCard(rot('Faturamento bruto'), rs(p.bruto), '', rs(h.bruto), rs(o.bruto)) +
       hmCard('Faturamento líquido', rs(p.liquido), hmSplit('após reembolso', rs(p.liquido_apos_reembolso)), rs(h.liquido), rs(o.liquido)) +
       hmCard('Vendas totais', num(p.vendas), '', num(h.vendas), num(o.vendas)) +
       '<div class="hm-card"><div class="hm-dupla"><div><div class="hm-lab">Ticket médio bruto</div><div class="hm-val">' + rsOuTraco(p.ticket_bruto) + '</div></div>' +
@@ -502,7 +506,7 @@
       '</div><div class="hm-grid">' +
       hmCard('Conversão · Em Contato → Venda', pct(p.conversao), hmSplit('Em Contato', num(p.em_contato)) + hmSplit('Leads', num(p.leads), 'pessoas únicas (telefone)'), pct(h.conversao), pct(o.conversao)) +
       (d.plataformas || []).map(function (pl) {
-        return hmCard('Faturamento ' + esc(pl.plataforma), rs(pl.liquido), hmSplit('bruto', rs(pl.bruto)) + hmSplit('vendas', num(pl.vendas)));
+        return hmCard('Faturamento ' + esc(pl.plataforma), rs(pl.liquido), hmSplit(rot('bruto'), rs(pl.bruto)) + hmSplit('vendas', num(pl.vendas)));
       }).join('') +
       hmCard('Reembolso', rs(p.reembolso), hmSplit('reembolsos no período', num(p.reembolso_qtd)), rs(h.reembolso), rs(o.reembolso)) +
       '</div>';
@@ -1034,7 +1038,7 @@
           var h = '<div class="kpis">' +
             kpi('Valor das vendas', rs(fat), plural(vendas.length, 'venda', 'vendas') +
               (reemb.length ? ' · ' + plural(reemb.length, 'reembolso', 'reembolsos') + ' abatidos' : ''), true) +
-            kpi('Faturamento bruto', rs(rec), 'o que já entrou, pelo valor pago na Hubla') +
+            kpi(rot('Faturamento bruto'), rs(rec), 'o que já entrou, pelo valor pago na Hubla') +
             kpi('Taxas da Hubla', rs(tax), rec > 0 ? pct(tax / rec) + ' do bruto' : '–') +
             kpi('Faturamento líquido', rs(liq), 'bruto menos taxas') + '</div>';
 
@@ -1064,7 +1068,7 @@
             ? '<section class="bloco"><header class="lista-topo"><div><h2>Vendas do comercial</h2><p>' +
               plural(vendas.length, 'venda', 'vendas') + ' em ' + periodoTxt() + '</p></div></header>' +
               '<div class="tabela-rolagem"><table class="tabela lista"><thead><tr><th>Data</th><th>Hora</th><th>Cliente</th><th>Telefone</th>' +
-              '<th>Vendedor</th><th>Produto</th><th>Pagamento</th><th class="n">Valor da venda</th><th class="n">Bruto</th>' +
+              '<th>Vendedor</th><th>Produto</th><th>Pagamento</th><th class="n">Valor da venda</th><th class="n">' + esc(rot('Bruto')) + '</th>' +
               '<th class="n">Líquido</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>'
             : '<section class="bloco"><p class="painel-msg vazio">Nenhuma venda do comercial em ' + periodoTxt() + '.</p></section>';
 
@@ -1079,9 +1083,9 @@
             }).join('');
             blocoSinais = '<section class="bloco"><header class="lista-topo"><div><h2>Sinais aguardando saldo</h2><p>' +
               plural(sinais.length, 'sinal pago', 'sinais pagos') + ', ainda sem o saldo. Não entram nas vendas acima.</p></div>' +
-              '<div class="lista-total"><span>Bruto em sinais</span><strong>' + rs(soma(sinais, 'bruto')) + '</strong></div></header>' +
+              '<div class="lista-total"><span>' + esc(rot('Bruto')) + ' em sinais</span><strong>' + rs(soma(sinais, 'bruto')) + '</strong></div></header>' +
               '<div class="tabela-rolagem"><table class="tabela lista"><thead><tr><th>Data</th><th>Cliente</th><th>Telefone</th>' +
-              '<th>Vendedor</th><th class="n">Bruto</th></tr></thead><tbody>' + rs2 + '</tbody></table></div></section>';
+              '<th>Vendedor</th><th class="n">' + esc(rot('Bruto')) + '</th></tr></thead><tbody>' + rs2 + '</tbody></table></div></section>';
           }
           corpo.innerHTML = h + lista + blocoSinais;
         });
