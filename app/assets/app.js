@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-27a';
+  var BUILD = '2026-11-27b';
   var MUDANCAS = 'Home: card Valor total vendido (quando a RPC devolve valor_vendido) e rótulos por cliente (rotulos em clientes.js)';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
@@ -503,7 +503,8 @@
         '<div><div class="hm-lab">Ticket médio líquido</div><div class="hm-val">' + rsOuTraco(p.ticket_liquido) + '</div></div></div>' +
         '<div class="hm-ho"><div class="hm-ho-c on"><span>Hoje · parcial</span><b>' + rsOuTraco(h.ticket_liquido) + '</b></div>' +
         '<div class="hm-ho-c"><span>Ontem</span><b>' + rsOuTraco(o.ticket_liquido) + '</b></div><div class="hm-ho-cap">ticket líquido</div></div></div>' +
-      '</div><div class="hm-grid">' +
+      // com o card de valor vendido são 8 cards: um grid só fecha 4 + 4 sem buraco
+      (p.valor_vendido !== undefined ? '' : '</div><div class="hm-grid">') +
       hmCard('Conversão · Em Contato → Venda', pct(p.conversao), hmSplit('Em Contato', num(p.em_contato)) + hmSplit('Leads', num(p.leads), 'pessoas únicas (telefone)'), pct(h.conversao), pct(o.conversao)) +
       (d.plataformas || []).map(function (pl) {
         return hmCard('Faturamento ' + esc(pl.plataforma), rs(pl.liquido), hmSplit(rot('bruto'), rs(pl.bruto)) + hmSplit('vendas', num(pl.vendas)));
