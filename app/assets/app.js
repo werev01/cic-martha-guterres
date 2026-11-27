@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  var BUILD = '2026-11-27b';
+  var BUILD = '2026-11-27c';
   var MUDANCAS = 'Home: card Valor total vendido (quando a RPC devolve valor_vendido) e rótulos por cliente (rotulos em clientes.js)';
 
   // Telas do MVP: chave (igual a perfil_menus.menu) -> rótulo, descrição e ícone
@@ -494,12 +494,14 @@
 
   function montaHome(d, largura) {
     var p = d.periodo || {}, h = d.dia_hoje || {}, o = d.dia_ontem || {};
+    // com valor_vendido (Poliane), o 1º ticket é valor total vendido / vendas; nos demais segue o bruto
+    var ticketA = p.valor_vendido !== undefined ? (p.vendas > 0 ? Math.round(p.valor_vendido / p.vendas * 100) / 100 : null) : p.ticket_bruto;
     var resultado = '<div class="hm-grid">' +
       (p.valor_vendido !== undefined ? hmCard('Valor total vendido', rs(p.valor_vendido), '', rs(h.valor_vendido), rs(o.valor_vendido)) : '') +
       hmCard(rot('Faturamento bruto'), rs(p.bruto), '', rs(h.bruto), rs(o.bruto)) +
       hmCard('Faturamento líquido', rs(p.liquido), hmSplit('após reembolso', rs(p.liquido_apos_reembolso)), rs(h.liquido), rs(o.liquido)) +
       hmCard('Vendas totais', num(p.vendas), '', num(h.vendas), num(o.vendas)) +
-      '<div class="hm-card"><div class="hm-dupla"><div><div class="hm-lab">Ticket médio bruto</div><div class="hm-val">' + rsOuTraco(p.ticket_bruto) + '</div></div>' +
+      '<div class="hm-card"><div class="hm-dupla"><div><div class="hm-lab">' + rot('Ticket médio bruto') + '</div><div class="hm-val">' + rsOuTraco(ticketA) + '</div></div>' +
         '<div><div class="hm-lab">Ticket médio líquido</div><div class="hm-val">' + rsOuTraco(p.ticket_liquido) + '</div></div></div>' +
         '<div class="hm-ho"><div class="hm-ho-c on"><span>Hoje · parcial</span><b>' + rsOuTraco(h.ticket_liquido) + '</b></div>' +
         '<div class="hm-ho-c"><span>Ontem</span><b>' + rsOuTraco(o.ticket_liquido) + '</b></div><div class="hm-ho-cap">ticket líquido</div></div></div>' +
